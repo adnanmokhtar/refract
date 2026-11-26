@@ -6,6 +6,17 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 2.1.0 — 2026-11-26
+
+**`/triage-support` — one customer message to a decision.** Nothing in Refract started from a
+customer's message. Each one became a ticket for a developer to read, though most are not bugs.
+`/triage-support` finds the feature the message is about in the code and sorts it into one of five
+kinds, each citing its evidence: BUG (the line and the repro), SETTING OR DATA (the setting and
+who changes it), HOW-TO (where the feature is), FEATURE REQUEST (and whether the board already has
+it) or UNCLEAR (the questions to ask). It drafts a reply in the customer's language with no
+internal detail or promised date, and never sends it. For a bug or a request, it files a card
+through `/task add`, with personal data redacted.
+
 ## 2.0.0 — 2026-10-19
 
 **The product pack became a detector pack (Track A batch 7).** Before this release it reviewed requirement prose and planned launches, but nothing in it could tell whether a shipped feature was finished, whether the analytics matched the tracking plan, or whether the plans the pricing page sells are the plans the gates enforce.

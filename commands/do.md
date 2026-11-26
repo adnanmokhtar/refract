@@ -98,6 +98,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "turn this report / plan / sheet into cards" / "put these findings on Trello" / "open tickets for these" + **a file or pasted list of work** | `/task add <source>` — files new cards in `addTo`, no code work |
 | "where are we" / "status report" / "what moved this week" / "what is stuck" / "lead time" / "how often do deploys fail" + **the team's work, not one plan** | `/task status [--since=<window>]` — a plan's progress is `/roadmap --status` |
 | "what broke in production" / "read the errors since yesterday" / "triage Sentry" / "new errors after the deploy" + **production errors, no single incident in progress** | `/triage-errors [--since=<window>]` (observability pack) — one incident in progress is `/investigate-incident` |
+| "a customer says …" / "answer this support ticket" / "is this a bug or user error" / a pasted customer message + **one message** | `/triage-support <message>` (product pack) — many messages read for themes is `/synthesize-research` |
 
 For ambiguous descriptions, the agent asks one clarifying question.
 

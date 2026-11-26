@@ -110,6 +110,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [understand, organize, retrieve, generate, update, validate]
   fallback: commands/define-success.md
 
+- name: triage-support
+  kind: command
+  triggers: { always: true }
+  extracts_from: ai/business-flows.md + ai/core/glossary.md (the product's own words for screens and settings) + _extracted-codebase.md § Modules (routes and screens)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/triage-support.md   # the source IS the fallback: the five kinds, the evidence each cites, and the never-send / redaction rules are the contract
+
 - name: to-questionnaire
   kind: command
   triggers: { always: true }

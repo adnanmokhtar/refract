@@ -6,6 +6,13 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/triage-support` — one customer message to a decision (2026-11-26)
+
+A new command in the product pack, installed per project. It finds the feature a customer message
+is about in the code and sorts the message into BUG, SETTING OR DATA, HOW-TO, FEATURE REQUEST or
+UNCLEAR, each with its evidence. It drafts the reply in the customer's language and never sends
+it. For a bug or a request, it files a redacted card through `/task add`.
+
 ### `/task` 1.7.0 — `status`: where the work stands (2026-11-26)
 
 `/task status [--since=7d]` is a project manager's read of the week. It covers the cards that

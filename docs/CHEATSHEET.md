@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**233 commands** — core 17 · 24 packs (170) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**234 commands** — core 17 · 24 packs (171) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -31,7 +31,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — mobile](#pack--mobile) — 6
 - [Pack — observability](#pack--observability) — 10
 - [Pack — performance](#pack--performance) — 4
-- [Pack — product](#pack--product) — 6
+- [Pack — product](#pack--product) — 7
 - [Pack — security](#pack--security) — 6
 - [Pack — testing](#pack--testing) — 7
 - [Pack — ui-ux](#pack--ui-ux) — 12
@@ -309,6 +309,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/product-fix` | Close /audit-requirements --repo findings: failing test first per class, root-cause fix, owning… | `--all` | `/product-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/synthesize-research` | Turn raw research material — interview notes, support tickets, session recordings, sales notes… | — | `/synthesize-research [<corpus or path>]` |
 | `/to-questionnaire` | Turn the decisions you cannot make alone into a questionnaire for the person who can — each… | — | `/to-questionnaire [<decision, or path to a brief / interview ledger>]` |
+| `/triage-support` | One customer message to a decision: find the feature it is about in the code, say whether it is a… | `--yes` | `/triage-support <message \| file> [--yes]` |
 
 ## Pack — security
 
