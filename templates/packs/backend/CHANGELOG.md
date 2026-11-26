@@ -9,6 +9,17 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.0 — 2026-11-26
+
+- **`/fix-bug` — is it a bug? Then the brief.** Phase 1:
+  - checks the expected behaviour against `ai/business-rules.md`. A recorded rule that makes
+    today's behaviour intended means it is not a bug; the run says so and stops;
+  - studies the area: the precedent, every screen, portal and role with the same behaviour,
+    existing records, conflicts;
+  - shows a plain brief before any code, and waits when run by a person.
+
+  A fix that changes a rule updates both rules files.
+
 ## 2.2.0 — 2026-11-26
 
 - **`/fix-bug` reviews the business axis.** The "based on area touched" table gains three rows: a

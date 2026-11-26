@@ -14,6 +14,31 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.1.0 — 2026-11-26
+
+Measured on a real board (40 cards): the questions came after the build, cards missed the other
+places a change applied, and a sister integration was redesigned instead of copied. The owner also
+found that `/analyze-task` could not run at all in a project with no `specs/` folder.
+
+- **`/analyze-task`** studies what exists before writing a story (`study-before-build.md`):
+  - the area's rules in `ai/business-rules.md`;
+  - the code and the precedent to follow;
+  - every portal, role, list and export the change reaches;
+  - existing data or new only;
+  - conflicts with today's rules.
+
+  The findings land in a `What exists today` section and in one list of questions. It searches the
+  board for the same item first. With no `specs/`, it uses the pack's spec shape instead of
+  halting. **`--to-board`** files the stories as cards, through `/task`'s add mode.
+- **`/expand-task`**: the same study, the same no-`specs/` fallback, and `--to-board`.
+- **`@workflow-integrity`, `@domain-model-auditor`, `@business-auditor`** read
+  `ai/business-rules.md` first:
+  - a behaviour a recorded rule asks for is not a finding;
+  - a diff that changes a rule without updating the rules files is.
+- **`/suggest-features`** ranks this business's own signals (goals, recorded rules, what customers
+  and staff keep asking for on the board) above the domain checklist. A checklist-only item is
+  listed apart.
+
 ## 2.0.1 — 2026-10-19
 
 - `business-auditor`'s example finding names an illustrative controller, not the `backend-defects` fixture's seeded one (`lint-fixture-leakage.py`).

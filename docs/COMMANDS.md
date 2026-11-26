@@ -324,6 +324,8 @@ Use when you don't remember the exact command. If you want a prompt artifact to 
 
 **Flags**: `--prompt-only` (fetch + normalize, then print a paste-ready prompt and stop — no execution, no write-back; hand-off mode), `--to=<command>` (dispatch directly to `/<command>` instead of routing via `/do`), `--no-writeback` (don't touch the source), `--review-only` (stop at Review, never auto-Done).
 
+**Refine mode:** `/task refine` studies every card in the pick lists before any code ([`study-before-build.md`](../templates/snippets/study-before-build.md): the business rules of the area, what exists, a precedent, every place the change applies, existing data, conflicts), posts each card's plain brief with all its questions, moves cards with questions to `waitIn`, and prints one page for the person to answer and approve at once. A drain builds only cards whose brief is approved with no open question; no card reaches review with an open question.
+
 **Add mode:** `/task add <source>` turns a plan, spec, audit report or `/walk-scenarios` sheet into new cards — one per item, each with a `## Acceptance Criteria` section, the board's own labels and a source line, duplicates skipped — in `task-flow.json`'s `addTo` list, never a pick list. One confirmation; `--yes` skips it.
 
 **Status mode:** `/task status [--since=7d]` reads the board, the PRs, CI and the deploys for the window — cards moved and stuck, PRs merged and failing, red branches, deploys and reverts — computes lead time, deploy count, change failure and time to restore from those records (never estimated), and ranks the risks. Read-only; written to `ops-local/status/<date>.md`.

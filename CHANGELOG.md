@@ -6,6 +6,47 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Understand first, then build — study, brief, business rules (2026-11-26)
+
+Measured on 40 real cards: 8 asked their questions after the build, 6 of those were reworked, 2 missed
+the other places a change applied, 2 added scope nobody asked for, and the owner's answers were
+written nowhere. The fix runs through every command on the way from an idea to code:
+
+- **`templates/snippets/study-before-build.md`** — one study shared by all of them:
+  1. the area's business rules;
+  2. what exists in the code, and the precedent to follow;
+  3. every place the change applies;
+  4. existing data or new only;
+  5. conflicts;
+  6. all the questions at once, with options;
+  7. a plain brief the person approves before any code;
+  8. keeping the business rules files current;
+  9. a feature record in the project;
+  10. study once: `study.md` is written once and the design phases start from it instead of
+      searching again, so the understanding is not paid for twice.
+- **`ai/business-rules.md` + `ai/business-rules-history.md`** (repo baseline): how the business
+  works today, area by area, each rule with where it is enforced, and an append-only log of every
+  change with its card and PR. A task that changes a rule edits it in place and logs it. The
+  business reviewers check both.
+- **`/task` 1.8.0:**
+  - **`refine`** studies every card in the pick lists, posts each one's brief and questions, moves
+    cards with questions to `waitIn`, and prints one page to answer and approve at once.
+  - **A drain builds only approved briefs.** "Assumed X, tell me if wrong" at the finish is gone,
+    and no card reaches review with an open question.
+  - **Every card leaves its record in the project:** `ai/features/<date>-<slug>/` holds the
+    approved brief with its questions and answers, the design and the acceptance criteria, and
+    `ai/features/_index.md` lists them all.
+- **`/add-feature`** (delivery 1.5.0) and **`/fix-bug`** (baseline, backend 2.3.0) study and brief
+  before code, and wait for the person when run directly.
+- **`/analyze-task` and `/expand-task`** (business 2.1.0):
+  - study the code before writing a story;
+  - run without a `specs/` folder (they halted before);
+  - file the stories on Trello, ClickUp, Jira, Linear or GitHub with `--to-board`.
+- **`/audit --assess`** adds three sections to one whole-project report: business rules and flows,
+  tests, and screens.
+- **`/suggest-features`** ranks this business's own goals, rules and repeated requests above the
+  domain checklist.
+
 ### `/define-success --readout` — the review date gets read (2026-11-26)
 
 Product pack 2.2.0. On the review date, `--readout <slug>` measures the metric and the

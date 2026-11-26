@@ -133,6 +133,25 @@ Capture from user / ticket:
 
 If user provides a stack trace, error message, log line, or screenshot, treat as primary evidence.
 
+### Is it a bug? Then the brief (before any code)
+- **Check the expected behaviour against `ai/business-rules.md`.** If a recorded rule makes
+  today's behaviour intended, it is not a bug: say so, quote the rule, and stop. Asking to change
+  the rule is a change request: `/add-feature`, or a question to the owner.
+- **Study the area** with [`study-before-build.md`](../templates/snippets/study-before-build.md) § 2–5:
+  - the precedent;
+  - every other screen, portal or role with the same behaviour ("fix it in all of them?" — the
+    similar-bugs scan below finds code siblings; this finds scope);
+  - existing records or new only;
+  - conflicts with today's rules.
+- **The brief** (§ 6): the cause when it is already known, what will change and where, what stays,
+  how to test, and the questions.
+  - **Run by a person directly:** print the brief and wait for the OK or the answers before Phase 2.
+  - **Run by `/task` with an approved brief:** go on.
+
+  An open question is asked, never assumed.
+- **A fix that changes a business rule** updates `ai/business-rules.md` in place and appends to
+  `ai/business-rules-history.md` in the same commit (§ 7).
+
 ## Phase 2 — Organize (decompose)
 
 Detect the bug class:
@@ -248,7 +267,7 @@ Then the review lenses (their candidates go through refute-before-report before 
 - `@code-reviewer` — fix quality + convention adherence.
 - `@test-reviewer` — does the regression test genuinely catch the bug class, not just the one input?
 - `@security-auditor` if the bug class touches auth / tenant / data integrity.
-- Business pack, when installed: `@workflow-integrity` if the bug is in a status transition, `@domain-model-auditor` if it moves money, stock or a balance, `@business-auditor` if it is in a forward action or its inverse (cancel, refund, resend). Each reads `ai/business-flows.md`; a bug there is usually one case of a class the same flow has elsewhere.
+- Business pack, when installed: `@workflow-integrity` if the bug is in a status transition, `@domain-model-auditor` if it moves money, stock or a balance, `@business-auditor` if it is in a forward action or its inverse (cancel, refund, resend). Each reads `ai/business-rules.md` and `ai/business-flows.md` first; a bug there is usually one case of a class the same flow has elsewhere.
 
 ## Phase 5 — Update
 

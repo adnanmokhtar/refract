@@ -113,10 +113,10 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/analyze-task` | Turn a rough business idea into structured requirements, user stories, and an implementation spec. | `--resume`, `--decisions` | `/analyze-task "<idea>"` |
+| `/analyze-task` | Turn a rough business idea into studied user stories and a spec — what exists today, every place it… | `--to-board`, `--resume`, `--decisions` | `/analyze-task "<idea>" [--to-board] [--resume <spec>] [--decisions <plan>]` |
 | `/audit-business` | Read-only business audit: six detectors, class ledger, refuted findings, verdict. | `--whole-repo`, `--classes=<MP,PR,BL,TX,IV,LG,FR,DM,RP,BT,LC,CY>`, `--live=<url>` | `/audit-business [<feature>] [--whole-repo] [--classes=<MP,PR,BL,TX,IV,LG,FR,DM,RP,BT,LC,CY>] [--live=<url>]` |
 | `/business-fix` | Close /audit-business findings failing-first; stops on rounding, tax, business-zone and retention… | `--all` | `/business-fix [audit-report-path \| finding-id ... \| --all]` |
-| `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context, acceptance criteria, scope… | — | `/expand-task "<brief>"` |
+| `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context, acceptance criteria, scope… | `--to-board` | `/expand-task "<brief>" [--to-board]` |
 | `/suggest-features` | Analyze the whole product against what a business in its domain should have, and WRITE a file of… | — | `/suggest-features` |
 | `/suggest-metrics` | Recommend the decision-driving KPIs a dashboard should show, cited and prioritized; --funnel=<flow>… | `--funnel=<flow>` | `/suggest-metrics [<scope>] [--funnel=<flow>]` |
 

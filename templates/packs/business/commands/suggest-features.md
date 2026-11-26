@@ -22,7 +22,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 So the job is: analyze the product against its domain, and hand back **pick-able, implementable candidates in a file** — never vague advice. A recommendation that `/analyze-task` cannot turn into a spec without re-deriving everything is a failed recommendation.
 
 **Every recommended capability MUST clear three gates or it is not written:**
-1. **Domain-warranted** — it appears in the domain's `feature-checklist.md` (the "what a business like this needs" list) OR is justified against a persona job; not invented to pad the list.
+1. **Warranted** — by **this business's own signals first**: a goal in `ai/project-goals.md`, a rule or direction in `ai/business-rules.md`, a theme in what its customers and staff keep asking (the board's recent cards, `/triage-support` lines in `ai/_history.md`), a persona job. The domain's `feature-checklist.md` warrants a candidate only beside one of those, or under its own heading `Common in this domain — no signal from this business yet`, never mixed in. A generic checklist item is how a product gets features its owner never wanted.
 2. **Missing (not already built)** — diffed against the product's ACTUAL capabilities (Phase 2 inventory), not assumed. A capability the product already has is not "missing".
 3. **Analyze-task-ready** — carries enough context (the capability, its business value, the entities/flows/modules it touches, what infra already exists) that `/analyze-task` can spec it directly. This is what makes the file *actionable* rather than a wish-list.
 
@@ -44,6 +44,7 @@ So the job is: analyze the product against its domain, and hand back **pick-able
 
 - **Domain** — detect the business domain from `ai/business-domain.md`, entities, and the installed `business-domains/<domain>/` knowledge. Ambiguous → ASK once; the capability set is domain-specific.
 - **Personas + their jobs** — `ai/users-and-personas.md`. Missing capabilities are ranked by which persona's job they unblock and how often.
+- **This business's direction** — `ai/project-goals.md`, `ai/roadmap.md`, `ai/business-rules.md` (how it chose to work; a candidate that contradicts a recorded rule is named as such, never recommended silently), and the board: the last 60 days of cards, read for what customers and staff ask for again and again (the provider of `/task`, read-only). `/triage-support` FEATURE REQUEST lines in `ai/_history.md` count too.
 - `<scope>` (optional) — narrow to a slice (`the checkout flow`, `the marketing surface`, `operator/admin`). Default: the whole product.
 
 ## Phase 2 — Retrieve (inventory what the product ALREADY has)
@@ -64,7 +65,7 @@ Cite the checklist section for each candidate — it is the domain warrant.
 ## Phase 4 — Generate (diff → prioritize → WRITE the file)
 
 1. **Diff** the domain capability set (Phase 3) against the inventory (Phase 2). Mark each: `have` / `partial (complete it)` / `MISSING (build it)` / `over-build (defer)`.
-2. **Prioritize** each gap by **business-value × reach × effort**:
+2. **Prioritize** each gap by **business-value × reach × effort**, after this business's own signal: a candidate its goals, rules or repeated requests point at ranks above any checklist-only one, whatever its score. Each block names its warrant — `goal: …`, `asked: 4 cards (#…)`, `rule: …`, or `checklist only`:
    - *Value*: the revenue/retention/trust decision it serves.
    - *Reach*: how many users / how often (from personas).
    - *Effort*: `have-infra` (extends existing modules) / `greenfield` (new module) — name which existing entities/modules it builds on.

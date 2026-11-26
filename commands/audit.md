@@ -414,7 +414,7 @@ Either spelling still stops here — no fix, no commit, no tier advance. What di
 
 If `--assess`: skip ranking + skip execution. Instead, read all 8 axis subfiles + the project's `_extracted-idioms.md` / `_extracted-codebase.md § Gold standards` / `ai/architecture.md` / `ai/conventions.md` and **author a narrative senior-engineer report** at `ai/audit/assessment.md`. Stop after writing. No `plan.md`, no `progress.md` advance, no commits.
 
-**Report contract — the cell ledger (Phase 2b), then exactly 8 top-level sections in this order.**
+**Report contract — the cell ledger (Phase 2b), then the 8 engineering sections in this order, then the three whole-project sections (business, tests, screens).**
 The ledger leads: a reader must be able to answer *"what is nobody looking at"* from the top of the
 report, without reading a single finding. In `--assess` it is rendered as narrative prose rather
 than the table, but the same three columns and the same no-bare-N/A rule apply.
@@ -435,6 +435,25 @@ than the table, but the same three columns and the same no-bare-N/A rule apply.
 7. **What should be removed** — dead code, unused styles, unused components / utilities / DTOs / endpoints, deprecated patterns. Examples: "12 components in `<path>` have zero references"; "4 SCSS utilities with no consumers"; "3 unused API endpoints — telemetry shows zero traffic"; "legacy auth middleware at `<path>` replaced by `<newer path>` but not deleted". Cite each. Route to `/optimize --focus=dead-code`.
 
 8. **What should be optimized** — concrete performance / scale / cost wins. Examples: "N+1 on `GET /orders` index (1 + N customer lookup)"; "bundle 2.4MB — moment.js + lodash full imports + 3 oversized images"; "queries on `(tenant_id, status, created_at)` need a composite index"; "sequential awaits in `<path>` parallelize safely". Cite + name target win where reasonable. Route to `/audit` (no flag) to execute, or `/audit --plan-only` for the ranked fix-plan.
+
+**The whole-project review — three more sections after the eight**, so one report answers "what is
+wrong with this project" instead of four. Each reads its pack's latest report when it is newer than
+the scope's last commit. Otherwise it dispatches that audit's detectors, read-only. A pack that is
+not installed prints `not reviewed — <pack> pack not installed (/setup-project --include=<pack>)`,
+never a guess.
+
+9. **Business rules and flows** (business pack — `/audit-business`'s detectors):
+   - a status nobody can leave, or one nothing reaches;
+   - one rule implemented two ways (`duplication-scan`);
+   - a forward action with no inverse;
+   - money or stock that does not balance;
+   - behaviour that contradicts `ai/business-rules.md`.
+
+   Tag rows `[business]`.
+10. **Tests** (testing pack — `/test-audit`'s detectors): what a green suite does not prove, such as
+    tests that cannot fail, code no test runs, and suites CI never runs. Tag rows `[tests]`.
+11. **Screens** (ui-ux pack — `/ui-audit`'s scoring, read from its latest report; this command does
+    not render routes): the surfaces below the bar. Tag rows `[ui]`.
 
 **Closing paragraph** — 3-5 sentence senior-engineer verdict: how production-grade the codebase is, how scalable for large teams, how easy to maintain long-term, the 2-3 highest-leverage next steps named with their commands. No empty superlatives; honest grading.
 

@@ -6,6 +6,25 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.5.0 — 2026-11-26
+
+**Understand first, then build.** `/add-feature` now has a step 6 in P0: run
+`study-before-build.md` and write a plain brief to `brief.md`.
+- **The brief** covers the problem, what will be done, the steps, what will not change, where it
+  applies and how to test it, plus every question at once.
+- **Run directly by a person,** it waits for their OK. That is the only human gate at T1, and the
+  plain half of H2 at T2 and T3. Run by `/task` with an approved brief, it does not wait again.
+- **An open question** is never answered by an assumption.
+- **P12** adds two items:
+  - a changed business rule updates `ai/business-rules.md` and its history;
+  - the feature record is committed in the project as `ai/features/<date>-<slug>/`, holding
+    `brief.md`, `design.md` and `acceptance.md`, with a line in `ai/features/_index.md`. The run
+    folder goes with the worktree; the record stays.
+- **The study is reused, not repeated.** `study.md` is copied from the card's refine notes when they
+  are current, every phase gets it in its brief, and P1–P5 start from it. P2's prior-art search
+  begins where the study's precedent and places end.
+- **The business lens** reads the rules file first.
+
 ## 1.4.0 — 2026-11-26
 
 **The review fan-out reads the business axis.** On a real board, cards built through `/add-feature`

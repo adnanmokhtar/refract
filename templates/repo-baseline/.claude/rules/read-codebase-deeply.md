@@ -25,7 +25,9 @@ Loads every session (no `paths:`); applies to every agent, command and generated
   | `ai/architecture.md` | System-shape / boundary work, cross-module change. |
   | `ai/modules.md` | Locating where a feature lives, or adding a new module. |
   | `ai/business-domain.md` | New feature, domain-glossary lookup. |
+  | `ai/business-rules.md` | Any task that touches business behaviour — before analysing it, asking the owner, or calling something a defect. A task that changes a rule updates it and `ai/business-rules-history.md` (`study-before-build.md` § 7). |
   | `ai/business-flows.md` | New feature touching an operational flow. |
+  | `ai/features/_index.md` | Changing a feature built before — then read that feature's folder (brief, design, acceptance) first. |
   | `ai/users-and-personas.md` | New feature, UX / role-scoped behaviour. |
   | `ai/business-model.md` | Pricing / entitlement / billing / plan-gating work. |
   | `ai/project-goals.md` | Scoping / prioritisation, "should we build this" calls. |

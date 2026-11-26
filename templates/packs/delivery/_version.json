@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "delivery",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "released": "2026-11-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/add-feature's review fan-out runs the business judges (workflow-integrity, domain-model-auditor, business-auditor) when the diff writes a status, moves money or stock, or touches a forward action with an inverse.",
+  "summary": "/add-feature studies and briefs before P1 (study-before-build.md): a person running it directly approves a plain brief first, an open question is never assumed, a changed business rule updates ai/business-rules.md + history, and the PR body is the design record.",
   "changelog": "CHANGELOG.md"
 }

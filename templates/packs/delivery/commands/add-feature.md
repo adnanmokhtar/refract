@@ -98,6 +98,25 @@ input paths, the mode or lens, the return shape — never your narrative, never 
    `skips[]` with what covers it — `.claude/schemas/run.schema.json`; validate with
    `python3 .claude/scripts/refract_records.py validate run ai/runs/<run-id>/run.json`) and
    `ledger.md` (run-ledger § 4). Mark P0 `done`.
+6. **Study and brief — before P1, every tier from T1.** Run
+   [`study-before-build.md`](../../../snippets/study-before-build.md):
+   - the business rules of the area;
+   - what exists, and the precedent to follow;
+   - every place the change applies;
+   - existing data or new only;
+   - conflicts with today's rules.
+
+   Write the brief to `ai/runs/<run-id>/brief.md` and the study's notes to `ai/runs/<run-id>/study.md`
+   (§ 10). Under `/task`, copy the card's study from `ops-local/refine/<card-key>.md` when it is current
+   instead of studying again. Every later phase gets `study.md` in its brief, and P1–P5 read it
+   first: the search it recorded is not run again.
+   - **Run by a person directly:** print the brief and wait for the OK or the answers before P1.
+     This is the plain-language half of H2, and at T1 it is the only human gate.
+   - **Run by `/task` with an approved brief:** the card's brief is the brief, with no second wait.
+   - **`--yes`:** skips the wait only when the brief has no open question.
+
+   An open question is never answered by an assumption. It stays open until the person answers,
+   and the run is `NEEDS_INPUT`.
 
 **Phases by tier** (`tiers.json`; ✓ runs, L = lite, – skipped with `covered_by: tier T<n>`):
 
@@ -124,7 +143,7 @@ input paths, the mode or lens, the return shape — never your narrative, never 
 
 ## P2 — Analysis (T2, T3)
 
-Dispatch `@product-analyst` again for `## Impact` (prior-art search, affected modules — from
+Dispatch `@product-analyst` again for `## Impact`, starting from `study.md`, whose precedent, places and existing data are the prior-art search already done (prior-art search beyond it, affected modules — from
 `build-graph.py --who-breaks` when the graph exists —, NFR → QA refs) and the draft
 `quality-attributes.md`. A near-duplicate capability is `NEEDS_INPUT`: extend, replace, or a
 deliberate parallel. Then `python3 .claude/scripts/trace-matrix.py <run-id> --phase=analysis` and
@@ -189,6 +208,7 @@ per new primitive or dependency. Then:
 6. **H2 — one combined gate** (T2/T3). Pause once and show everything the human needs:
 
    ```
+   Brief:        <the approved brief in the person's language — problem, what we will do, steps>   brief.md
    Run:          ai/runs/<run-id>/ — tier <T> (<reasons>)
    Requirements: <stories · criteria · unchanged · out of scope>          requirements.md
    Constraints:  <each binding constraint + how the design satisfies it>   design.md § Constraints
@@ -253,7 +273,7 @@ security → business → performance → code → observability). Each gets a b
 | `@code-reviewer` — correctness, conventions, contracts | ✓ | ✓ | ✓ |
 | `@architecture-reviewer` mode `conformance` | – | ✓ | ✓ |
 | security: `@security-auditor` (+ `auth-reviewer`, `tenant-isolation-reviewer`, `data-privacy-reviewer`, `api-security-reviewer` when their trigger fired) | floor only | ✓ | ✓ + `/security-audit` scoped to the diff |
-| business, each when its signal fired: `@workflow-integrity` — the diff writes a status (an edge nobody guards, a state nobody leaves, two aggregates that can disagree); `@domain-model-auditor` — it moves money, stock or a balance (the invariant and where it is enforced); `@business-auditor` — it adds or changes a forward action that has an inverse (cancel, refund, resend). Each reads `ai/business-flows.md` and its own § Dispatch for the diff signal | – | ✓ | ✓ |
+| business, each when its signal fired: `@workflow-integrity` — the diff writes a status (an edge nobody guards, a state nobody leaves, two aggregates that can disagree); `@domain-model-auditor` — it moves money, stock or a balance (the invariant and where it is enforced); `@business-auditor` — it adds or changes a forward action that has an inverse (cancel, refund, resend). Each reads `ai/business-rules.md` and `ai/business-flows.md` first — a rule written there is the business's decision, not a finding — reports a changed rule whose two rules files the diff leaves untouched, and finds its diff signal in its own § Dispatch | – | ✓ | ✓ |
 | `@performance-optimizer` — N+1, unbounded queries, budgets in `ai/runtime/perf-budgets.md` | – | ✓ when a hot path or bundle is touched | ✓ |
 | `@schema-reviewer` — migrations, constraints | – | ✓ on a schema change | ✓ |
 | `@observability-reviewer` — instrumentation parity, `release.md` | – | ✓ | ✓ |
@@ -283,6 +303,19 @@ cap at `THR-LOOP.review_rounds_max`; a fix re-runs only the lens that found it.
 | CONCERNS | INCOMPLETE, naming the criterion and what would let it run |
 | missing or STALE | not judged — re-dispatch; never COMPLETE |
 
+4. **Business rules.** When the brief says a rule changes, the diff updates `ai/business-rules.md`
+   in place and appends to `ai/business-rules-history.md` (`study-before-build.md` § 7). A
+   changed rule with neither file touched is INCOMPLETE.
+5. **The feature record is committed in the project** (`study-before-build.md` § 9), in the same
+   change, as `ai/features/<YYYY-MM-DD>-<slug>/`:
+   - `brief.md` — the approved brief, with its questions and answers;
+   - `design.md` — from `design.md` and `ux.md`: components, API endpoints, data changes and
+     screens, and why this shape;
+   - `acceptance.md` — the acceptance criteria.
+
+   Add one line to `ai/features/_index.md`. The PR body links the folder. The run folder lives in
+   the worktree and goes with it; the record stays.
+
 **H4:** a human merges. P13 deploy is `/deploy-stage` (level D — the human types it, H3).
 
 ## Loop control and context
@@ -297,6 +330,7 @@ compaction `precompact-handoff.sh` writes `handoff.json` and steers the summary;
 ```
 /add-feature — <feature>   Status: COMPLETE | INCOMPLETE | BLOCKED (SPEC_CONFLICT) | NEEDS_INPUT
 Run:        ai/runs/<run-id>/   tier <T> (<reasons>)   lanes <lanes>      (T0: "no run — T0")
+Brief:      approved by <person | the /task card> · questions <n asked, all answered>
 Spec:       <Spec-ID>                                    (when built from a spec — every tier)
 Phases:     P0 ✓ · P1 ✓ · … · skipped: <phase → covered_by>
 Gates:      H1 <–|human> · H2 <human|plan-critic> · H4 pending

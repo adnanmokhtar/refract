@@ -23,7 +23,7 @@ role: judge
 inputs:
   required: [scope]             # one feature, or "whole repo" under /audit-business; plus check-business-coverage rows when the caller already ran it
   optional: [live]              # --live=<non-production URL> + the roles' test credentials; absent → static lane only
-  reads:    [check-business-coverage's coverage block, routes.tsv, pairs.txt, apionly.txt, the controllers and screens a row cites, the feature's spec / ADR, ai/business-flows.md, ai/users-and-personas.md]
+  reads:    [ai/business-rules.md, check-business-coverage's coverage block, routes.tsv, pairs.txt, apionly.txt, the controllers and screens a row cites, the feature's spec / ADR, ai/business-flows.md, ai/users-and-personas.md]
   never:    [the builder's summary, PR text, commit messages, the detector's reasoning behind a row]
 output:
   returns:  the '## Output' block, ending in the cycle register
@@ -37,6 +37,8 @@ next:       /business-fix (graded rows) · /analyze-task (scope the spec never p
 ```
 
 ## The Premise (read first, do not deviate)
+
+**(0) This project's rules come first.** Before judging, read `ai/business-rules.md` (and `ai/business-rules-history.md` for how a rule got there). A behaviour a recorded rule asks for is the business's decision, not a finding, however a typical business of this kind would do it; when the code and the recorded rule disagree, report the disagreement and quote both. A diff that changes a rule and leaves both files untouched is an IMPORTANT finding (`.claude/templates/snippets/study-before-build.md` § 7).
 
 **(a) The spec is the oracle for scope; the routes are the oracle for existence.** A defect cites both: the spec section, persona or legal obligation the feature must meet, and the route, handler or screen that shows the gap (`<file:line>` or `<screen → step>`). Do not invent stakeholders: audit the actors the spec and `ai/users-and-personas.md` declare. A gap the spec scoped out is documented out-of-scope, not a defect.
 

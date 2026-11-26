@@ -5,7 +5,7 @@ pack: business
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /expand-task "<brief>"
+# /expand-task "<brief>" [--to-board]
 
 Most "fix login bug" / "make orders faster" tickets are one line. This produces a structured prompt an implementer (or `/add-feature` / `/fix-bug`) can execute.
 
@@ -33,7 +33,7 @@ Before producing the expanded spec, the agent MUST:
 - Confirm the new spec will use the same section list + ordering as those siblings.
 - Confirm Given/When/Then phrasing matches sibling AC style.
 - Confirm `Affected modules` paths exist (grep `ai/modules.md` or filesystem) — fabricated paths halt the run.
-- If no sibling specs exist — HALT. Confirm the template with the user, do not invent shape from training data.
+- If no sibling specs exist, use the shape in step 2 above and say so in one line (`Shape: business-pack default (no sibling specs)`). Never halt for it.
 
 A spec produced without sibling-shape parity is rejected; regenerate or halt.
 
@@ -77,8 +77,8 @@ A spec produced without sibling-shape parity is rejected; regenerate or halt.
 
 ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
-TASK-SPECIFIC:
-- Read related code + `ai/` docs to ground the expansion in reality. If the brief mentions a feature, run a quick `/find-module` mentally.
+TASK-SPECIFIC — study what exists ([`study-before-build.md`](../../../snippets/study-before-build.md) § 1–5):
+- `ai/business-rules.md` for the area; the code the brief's nouns already have and the rule it applies today; a precedent to follow; every portal, role, list, export and API the same thing appears in; existing data or new only; conflicts. Each gap is an open question with options in the spec's `Edge cases`/open questions, asked now, never assumed.
 - `ai/modules.md` to identify candidate affected modules.
 - Recent `ai/dynamic/changelog.md` entries — has someone already started this?
 
@@ -127,6 +127,7 @@ End with ONE suggested next command — the most likely tool for this task (`/ad
 
 - Save to `specs/<YYYYMMDD>-<slug>.md` if the user asks for a doc — stamp a `Spec-ID: <slug>-<4char-hash>` header so `/add-feature specs/<file>` can consume it and backreference it in commits/PR (same contract as `/analyze-task`); otherwise return inline.
 - If a stakeholder open-question was surfaced → append to `ai/dynamic/decisions-pending.md`.
+- **`--to-board`** → file the expanded task as one card through `/task`'s § *Add mode* steps 3–7 (brief, `## Acceptance Criteria`, the board's labels, source line; duplicates skipped; `addTo`, never a pick list; one confirmation).
 - No `ai/status.md` entry yet (this is pre-work; wait for execution).
 
 ## Phase 6 — Validate (verify correctness)

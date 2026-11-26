@@ -3,11 +3,11 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.7.0
+version: 1.8.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /task <ref> | add <source> | status [--since=7d] [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only] [test word] [«من غير كومنت»]
+# /task <ref> | refine | add <source> | status [--since=7d] [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only] [test word] [«من غير كومنت»]
 
 Pull ONE task from your project-management tool and do it. `<ref>` is a card/issue
 **URL**, a **key** (`PROJ-123`, `#42`, `trello:<id>`), or **`next`** (the top card of the
@@ -19,6 +19,7 @@ fetch → normalize → ingest attachments → execute → write status back.
 ## When to use / NOT to use
 - USE: "do this card" with a link/key; "grab the next ticket and start"; turning an issue's description + attached spec/screenshot into a working change with the card updated.
 - USE: working the queue — `/task next --drain` takes every card in the pick lists, one at a time, each closed before the next starts.
+- USE: understanding the batch before any code — `/task refine` studies every card in the pick lists, posts each one's plain brief and questions, and builds nothing (§ *Refine mode*).
 - USE: filling the board — `/task add <source>` turns a plan, a spec, an audit report or a scenario sheet into new cards (§ *Add mode*). It does no code work.
 - NOT: bulk-porting a whole board in one shot (all cards in one change, or cards outside the pick lists). NOT: when you already know the exact code change and the ticket is just noise — call the specialist command (`/add-feature`, `/fix-bug`) directly.
 
@@ -49,6 +50,8 @@ reads the same flow:
   "review":   "Testing",
   "done":     null,
   "addTo":    "Backlog",
+  "waitIn":   "On Hold",
+  "planApproval": "person",
   "git": {
     "branchFrom":     "origin/main",
     "branch":         "<type>/<slug>",
@@ -76,6 +79,11 @@ reads the same flow:
   pick the command; they ride along in the description as context. No matching label → `/do`
   routes from the text as before. A target command that does not exist in this repo → fall back to
   `/do` and say so in the echo.
+- **`waitIn`** — the list a card waits in while its brief has open questions (§ *Refine mode*).
+  Absent → the card stays where it is, labelled with its open-question count in the brief comment.
+- **`planApproval`** — `person` (default): a card is built only after a person approved its brief.
+  `none`: a brief with no open question is built at once. A brief with an open question is never
+  built, whatever this says.
 - **`addTo`** — the list `add` creates cards in (§ *Add mode*). Absent → the board's first list
   outside `pickFrom`. Never a pick list unless the person names one in the call.
 - **`start` / `review` / `done`** — the `statusFlow` names, matched case-insensitively. **`done:
@@ -95,7 +103,12 @@ reads the same flow:
     commit. Absent → `git switch -c` in place.
   - **`prTo`** — after Phase 6, push the branch and open one PR into each target, in order.
     `/task` opens PRs and never merges one: merging belongs to whoever releases, who types
-    `/merge-to` to check the PRs together before they land.
+    `/merge-to` to check the PRs together before they land. **Each card leaves its record in the
+    project**: `ai/features/<YYYY-MM-DD>-<slug>/` with the approved brief (`brief.md`, questions and
+    answers included), the design (`design.md`, when `/add-feature` built it) and the acceptance
+    criteria (`acceptance.md`). It is committed with the code, with one line in
+    `ai/features/_index.md` (`study-before-build.md` § 9). The PR body is the card link and the folder
+    path.
   - **`conflictBranch`** — a branch that does not merge cleanly into a target is never fixed on
     the branch itself, because the target's history would then ride into its other PRs. Cut this
     branch from the target, cherry-pick the card's own commits onto it (`git cherry-pick
@@ -148,7 +161,10 @@ comment switch and the arguments without them:
 ## Drain mode (`next --drain`)
 
 Runs the full Phase 1–7 lifecycle once per card, sequentially, re-reading the pick lists before
-each card (a human may have moved one meanwhile). **One card is closed — committed, written back,
+each card (a human may have moved one meanwhile). **A card is built only when its latest brief
+is approved and has no open question** (§ *Refine mode*). Any other card is refined (brief posted,
+moved to `waitIn` when it has questions) and the drain goes on to the next one. Running `/task
+refine` first and answering once is the fast path. **One card is closed — committed, written back,
 audited — before the next is fetched.** Stops when:
 - the pick lists are empty → print the per-card summary and end;
 - **any card halts** (§ *If the run halts after the card was marked*) → stop the whole drain; a
@@ -160,6 +176,47 @@ sequential. Each card still gets its own branch and PR. Every agent's brief name
 cards in flight and the files and flows they touch. Two cards on the same flow (a call to an
 outside service, stock moves, permissions) are told about each other, and each PR body names the
 seam between them.
+
+## Refine mode (`refine`) — understand every card before any code
+
+A card built on an assumption comes back from QA. A question asked after the build is a question
+the owner had to answer twice. `refine` does the understanding for the whole batch first, and
+builds nothing.
+
+1. **Read every card in the pick lists**, the same way Phase 1 reads one: description, every
+   comment, attachments, labels.
+2. **Study each card** with [`study-before-build.md`](../templates/snippets/study-before-build.md):
+   - the business rules of its area;
+   - what exists in the code, and a precedent to follow;
+   - every place the change applies;
+   - existing data or new only;
+   - conflicts with today's rules.
+
+   Cards in the same batch that touch the same flow are read together, and each brief names the
+   other.
+3. **Write the study once** to `ops-local/refine/<card-key>.md` (gitignored; `study-before-build.md`
+   § 10), so the build and its design start from it instead of searching again.
+4. **Post the brief on each card** as one comment that opens «الخطة» / «Plan» in the card's
+   language: the brief from `study-before-build.md` § 6, questions included. A card that already
+   carries a brief is re-briefed only when a human commented after it.
+5. **A card with open questions** moves to `waitIn`. A card without any stays where it is.
+6. **One page for the person**, in the chat and in `ops-local/refine/<YYYY-MM-DD>.md`:
+   - every card's three-line brief;
+   - all the questions grouped by card;
+   - the cards ready to build.
+
+   The person can answer and approve in one reply.
+7. **Record the answers.** An answer given in the chat is posted on its card as a comment
+   («إجابة» / «Answer», naming who answered). The card's brief is updated, and it moves back to
+   its pick list. An answer that settles a business rule is written to `ai/business-rules.md` and
+   `ai/business-rules-history.md` (`study-before-build.md` § 7).
+8. **Approval.** Under `planApproval: person`, a brief is approved by the person's OK in the chat
+   (posted on the card as `✓ الخطة متوافق عليها — <who>, <date>`), or by a human comment after the
+   brief that approves it, or by a human moving the card from `waitIn` back to a pick list after
+   answering.
+
+A drain builds only cards whose latest brief is approved and has no open question. It refines any
+other card it meets, then moves on to the next one.
 
 ## Add mode (`add <source>`) — turn a plan or a report into cards
 
@@ -255,11 +312,15 @@ time. Scheduled: `/schedule` → "every Sunday 09:00, run `/task status`".
 4. **Fetch + normalize** to the canonical **TaskSpec** over whichever channel works (MCP or REST), using that provider's adapter (field map in the reference doc). Read title, description, checklist/sub-issues, attachments metadata, labels, **every comment**, current status, and the status-flow target names. Trello does not return comments with the card — fetch them separately (`/cards/<id>/actions?filter=commentCard`), oldest first.
 5. **Read the comments as part of the requirements**, on every card in every list — people clarify, narrow and add scope in comments far more often than they edit the description:
    - A human comment that clarifies, adds or changes what is wanted is requirement text — it joins the description and can add AC.
-   - **Conflict → the newest human statement wins** over the description and older comments; name the conflict and which one was followed in the echo and in the questions comment (Phase 5).
+   - **Conflict → the newest human statement wins** over the description and older comments; the brief names the conflict and which one was followed. A conflict no statement settles is a question in the brief, before any code.
    - **`/task`'s own earlier comments** (they end with the reference line, or open with a commit SHA in the older format) are history — what was tried and where it stopped — never new requirements. They post under the token owner's name, so the author alone does not tell them apart.
-   - Questions in comments that nobody answered → carry them into the echo; a question that blocks the work is the one scoping question.
+   - Questions in comments that nobody answered → they join the brief's questions; the card is not built until they are answered.
    - Links and Drive files in comments are attachments (Phase 3).
-6. **Echo the resolved spec** (title, key, AC count, subtask count, attachment count, comment count — and any requirement a comment changed) in 4–5 lines and state the plan. Proceed without a pause unless the AC are empty AND the title is vague (then ask one scoping question), or Phase 3 finds the card contradicting a test or decision already in the repo (one question per conflict).
+6. **Study, brief, approval — before the start-move.** Run [`study-before-build.md`](../templates/snippets/study-before-build.md) on the card (Phase 3 reads feed it). The card has an approved brief with no open question → go on. Otherwise:
+   - **a single card in a session:** print the brief and wait for the person's OK or answers;
+   - **in a drain:** post the brief on the card (§ *Refine mode*) and take the next card.
+
+   **No assumption ever fills a gap**: a gap is a question in the brief, and the card waits. A card refined earlier on this machine reuses `ops-local/refine/<card-key>.md` when no human comment came after it, and is not studied again (§ 10).
 
 ## Phase 2 — Organize (decompose)
 ```
@@ -345,7 +406,7 @@ the run ends before Phase 4 dispatches, so it never reaches the start-move eithe
 Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless `--no-writeback`:
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
 - **Under «من غير كومنت»** neither finish comment below is posted, and no halt comment either; the moves still happen, and the report to the person carries what the comments would have said, questions included.
-- **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post the **tester comment**, then — only when something needs an answer — a separate **questions comment**, both via the adapter's comment verb and in the card's language. Never put a question inside the tester comment: under the test steps it gets lost.
+- **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post the **tester comment** via the adapter's comment verb, in the card's language. Questions are not asked here: they were asked in the brief, before the build.
 
   **The tester comment.** Its reader is the tester, not a developer, and it is short — read in a minute, no paragraph of background:
   1. What changed in one plain line (for a bug, the cause in one plain sentence). No commit SHA and no "will reach the server with the next deploy" here — the review list already says it is not deployed.
@@ -354,7 +415,7 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
   4. Checks — **only what a tester can act on**, and never what ran on this machine (§ *Words after the ref*). A passing suite is not mentioned: test counts, file counts and "failed before / passes after" belong in the commit message and `ai/_history.md`. A failing or skipped check gets one line saying what failed. gate-check's `verdict:` line appears only when the project has `gate-check.py`; **no gate script → no verdict line**, since «verdict: UNVERIFIED» on a shared board reads to a tester as "not verified" (the missing gate goes in the local audit line).
   5. Last, one small reference line: the commit SHA(s) or PR link (`Ref: e88913e4d`, in the card's language) — with a `git` block, the branch name and each PR link. It is for the developer who checks whether the deployed build carries the fix when a tester reports it still broken. Tick completed checklist items / close sub-issues.
 
-  **The questions comment** — posted after the tester comment, and only when there is something to ask: a question on the card nobody answered, a conflict the newest statement settled (Phase 1), an assumption made where the card was silent, a card too thin to verify (Phase 7). It opens with one line, «أسئلة» / «Questions» in the card's language, then one numbered question per line, each answerable with a word or a choice, followed by what was done meanwhile («افترضت X — لو غلط قول»). Nothing to ask → no second comment.
+  **A question that appears only during the build** — something the code showed that no reading could — stops the card before the finish move. Post it in a **questions comment**: it opens «أسئلة» / «Questions», then one numbered question per line, each answerable with a word or a choice. Then move the card to `waitIn` (or leave it In Progress, with the branch pushed), **never to review**. A card does not reach the review list carrying an open question, and nothing is built on «افترضت».
 - **Move** to `statusFlow.review` by default (a human verifies). Move to `statusFlow.done` only when ALL hold: `task-flow.json` does not set `done: null`; `--review-only` is NOT set; Phase 6 validated every AC ✓; and `python3 .claude/scripts/gate-check.py --local` ended `verdict: PASS` for the committed change (evidence in `.claude/evidence/<sha>/`). A `FAIL` or `UNVERIFIED` verdict moves to Review with that line in the comment; a project with no `gate-check.py` moves to Review with no verdict line — never to Done either way. **Never delete** a card/issue.
 - **Write-back is post-execution — the work is already done and committed.** A failed status move / comment post (MCP error, REST 4xx/5xx, network) must NOT lose the work or leave the user without a record. When write-back fails AFTER execution:
   1. Do NOT halt silently and do NOT retry-loop forever (one retry max).
@@ -369,10 +430,11 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - Tests run green (or explicitly report which fail) — with a `testing.json`, exactly the stages the test level names, via `test-level.py run`, and no more. Attachment-derived specs honored (e.g. screenshot layout matched).
 - When the project has `.claude/scripts/gate-check.py`, run `python3 .claude/scripts/gate-check.py --local` once the change is committed and keep its last line (`verdict: PASS | FAIL | UNVERIFIED`) — it is the only verdict that can move the card to Done. No gate script → nothing to run and nothing to report on the card; the card stops at Review. The routed command's own "COMPLETE" is a claim; the gate's verdict is evidence.
 - The write-back comment's ✓/✗ list must reflect reality — never report an unmet AC as met.
+- When the brief says a business rule changes, the commit updates `ai/business-rules.md` in place and appends to `ai/business-rules-history.md` (`study-before-build.md` § 7); otherwise the card is not done.
 
 ## Phase 7 — Improve (feed the loop)
 - If the same provider+pattern recurs, suggest `/task next` looping or a scheduled drain.
-- If a card was under-specified (empty AC, vague title) and needed a question, note it — the fix is in the ticket-writing, surface that back in the questions comment.
+- If a card was under-specified (empty AC, vague title) and needed a question, note it — the fix is in the ticket-writing, and `/analyze-task` writes the next one studied.
 - New provider needed? Point to the extension steps in the task-providers reference.
 
 ## Hard rules
@@ -383,6 +445,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - **Read adapters, don't hard-code.** Provider field maps + status verbs come from `templates/integrations/task-providers.md`; tool names are discovered at runtime.
 - **Never delete; never silently downgrade.** Write-back moves forward (start→review→done) or comments; destructive ops are out of scope.
 - **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not. The tracker comment is written for the tester: how to test it, and only the checks they can act on — no gate script, no verdict line. Questions go in their own comment after it, never inside it.
+- **Understand first, build second.** No card is built on an assumption, none before its brief is approved, and none reaches the review list with an open question (§ *Refine mode*).
 - **Faithful execution.** The routed description preserves the card's intent verbatim — no scope drift, no silent omission of AC, and no human comment left unread.
 - **Secrets stay in `.env`.** `/task` reads creds only via the provider MCP's env; it never prints or echoes tokens.
 
@@ -393,7 +456,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - **Ambiguous `next` (multiple providers)** → ask which provider (one question).
 - **Project has no `gate-check.py`** → not a halt and not a verdict: the comment carries no verdict line, the card stops at Review, and `ai/_history.md` notes `gate=none`.
 - **Card not found / no access** → halt; surface the provider's error verbatim.
-- **Empty description AND empty AC AND vague title** → ask one scoping question before executing.
+- **Empty description AND empty AC AND vague title** → the brief says what is missing, its questions ask it, and the card waits in `waitIn`.
 - **Routed specialist halts** (its own intent gate) → re-surface both routings; do not force.
 - **Write-back fails AFTER execution** (MCP/REST error on the status move or comment post) → do NOT lose the work: print the comment body + the exact manual post command (MCP args or `curl`/REST with `.env` creds), still append the `ai/_history.md` audit line marked `writeback=FAILED(<reason>)`. The committed change stays; only the source update is deferred to the user.
 
@@ -437,6 +500,11 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 /task PROJ-128 --to=add-feature --prompt-only
 → print an /add-feature-shaped prompt for PROJ-128; you run it elsewhere
 
+/task refine
+→ 9 cards in Approved studied · 6 briefs ready · 3 with questions (moved to On Hold)
+  → one page: each card's brief in three lines + 5 questions → the person answers and says «تمام»
+  → answers posted on the cards, 2 rules written to ai/business-rules.md → /task next --drain builds the 9
+
 /task add ai/scenarios/return-request.md
 → 2 BREAKS + 1 untested refund case → 3 cards [Bug ×2, Test ×1] for Backlog · 0 already on the board
   → confirmed → created → each sheet row gets " → <card url>" · ai/_history.md: 3 cards (Backlog)
@@ -451,6 +519,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 | Flag | Effect |
 |---|---|
 | `--drain` | With `next`: work the pick lists card by card until empty, a card halts, or `--max`. |
+| `refine` | Study every card in the pick lists, post each one's plain brief and questions, move cards with questions to `waitIn`, print one page of all of it; builds nothing (§ *Refine mode*). |
 | `add <source>` | Turn a plan, spec, audit report or scenario sheet into new cards in `addTo` (§ *Add mode*); no code work. `--yes` skips the one confirmation. |
 | `status [--since=7d]` | Where the work stands: board moves, stuck cards, PRs, CI, deploys, lead time and change failure from records, ranked risks (§ *Status mode*). Read-only. |
 | `--max=N` | Cap a drain at N cards (default 5). |

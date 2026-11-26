@@ -1,11 +1,11 @@
 ---
-description: Turn a rough business idea into structured requirements, user stories, and an implementation spec.
+description: Turn a rough business idea into studied user stories and a spec — what exists today, every place it applies, conflicts with current rules, all questions at once — and, with --to-board, file the stories as cards on Trello, ClickUp, Jira, Linear or GitHub.
 kind: command
 pack: business
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
-# /analyze-task "<idea>"
+# /analyze-task "<idea>" [--to-board] [--resume <spec>] [--decisions <plan>]
 
 Build command for the spec layer (not code yet). Two-pass: business spec → confirmation → technical spec. All 7 phases apply with a hard pause between Phase 4a and 4b.
 
@@ -37,7 +37,7 @@ Before dispatching `business-analyst`, the agent MUST:
 - List the 2-3 sibling specs read (`specs/*.md` paths).
 - Name the section list those specs share (e.g., `Problem / Stories / AC / Out of scope / Open questions / Affected modules / DB / API / Test plan / Risk`).
 - Confirm the new spec will use that exact section list, in that order.
-- If no sibling specs exist — HALT. Ask the user to confirm the spec template, do not invent one from training data.
+- If no sibling specs exist, use the business pack's spec shape (the 4a list below, then 4b), and say so in one line at the top of the spec: `Shape: business-pack default (no sibling specs)`. Never halt for it: a project without `specs/` still needs its first spec.
 
 Section renaming or section invention without a sibling precedent is rejected; the spec is regenerated mirroring siblings.
 
@@ -49,7 +49,7 @@ Section renaming or section invention without a sibling precedent is rejected; t
 
 ## Phase 1 — Understand
 - Take rough input as quoted string argument.
-- Confirm: is this a real ambiguous brief, or already specified elsewhere? Search `specs/` first.
+- Confirm: is this a real ambiguous brief, or already specified elsewhere? Search `specs/` first, then the board: an open card with the same item (`/task`'s provider, read-only) means the spec extends that card instead of starting a second one.
 
 ## Phase 2 — Organize
 - Decide the two passes:
@@ -62,7 +62,18 @@ Section renaming or section invention without a sibling precedent is rejected; t
 
 ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
-Spec-specific:
+Spec-specific — **study what exists before writing a single story**
+([`study-before-build.md`](../../../snippets/study-before-build.md) § 1–5):
+- `ai/business-rules.md` — the rules of the areas the idea touches. A rule written there is the
+  business's decision; a story that changes it says so ("today X; after this, Y") and asks.
+- The code — the screens, routes and jobs the idea's nouns already have, the rule each applies
+  today, and **a precedent** (a sister integration, the same filter on another list): a story
+  follows its precedent unless the idea says otherwise.
+- **Scope** — every portal, role, list, export, print and API the same thing appears in. Each
+  place the idea does not name is one open question with the list ("also in A, B, C?").
+- **Existing data** — does the change apply to records created before it, or to new ones only?
+- These land in a `What exists today` section of the spec (current behaviour · precedent · places
+  · existing data · conflicts) and in `Open questions` — never in assumptions.
 - `ai/decisions/` — recent ADRs (don't redesign around an active constraint).
 - `specs/` — search for related drafts.
 - `ai/architecture.md` — boundary the spec must respect.
@@ -77,7 +88,8 @@ Spec-specific:
   - User stories (`As <role>, I want <action>, so that <outcome>`).
   - Acceptance criteria per story (`Given/When/Then`).
   - Out of scope (explicit non-goals).
-  - Open questions (assumptions to confirm with stakeholder).
+  - Open questions — every gap the study found, each with its options and what each changes. All of them now, in one list: a question found after the build costs a rebuild.
+  - **The brief** (`study-before-build.md` § 6) at the top: problem, what we will do, steps, what will not change, where, how to test — in the person's language.
 - **INSUFFICIENT-BRIEF halt:** if open questions outnumber drafted user stories, OR any core dimension (who / what / why / success-metric) is unanswerable from the brief → HALT with status `INSUFFICIENT BRIEF`. Surface the gaps; do NOT draft stories on guesses to satisfy a non-empty check.
 - Save draft to `specs/<YYYYMMDD>-<slug>.md`, with a `Spec-ID:` header as the first line (Plan-ID style): `Spec-ID: <slug>-<4char-hash>` — a short hash of `(slug + timestamp + project-name)`, stable for the file, cited later by `/add-feature`, PRs, and commits.
 - Print draft + open questions. **STOP. Wait for user to confirm or amend.**
@@ -122,6 +134,15 @@ Spec-ID: <slug>-<4char-hash>
 
 ## Phase 5 — Update
 - `specs/<YYYYMMDD>-<slug>.md` — created (and appended after gate).
+- **`--to-board`** (after the gate, or in the one pass under `--decisions`) — file the stories on
+  the project's board through `/task`'s § *Add mode* steps 3–7:
+  - one card per story, or per epic part when Phase 6 split it;
+  - the brief and the story's `Given/When/Then` as its `## Acceptance Criteria` section;
+  - the board's own labels, and `After: <card>` for dependencies;
+  - `Source: specs/<file>` and the `Spec-ID`.
+
+  Duplicates already on the board are skipped. The cards land in `addTo`, never a pick list, with
+  one confirmation first. Without `--to-board`, the run ends by offering it.
 - `ai/dynamic/changelog.md` — one-line: `spec drafted: <slug>`.
 - `ai/status.md` — `## Recent Changes` bullet if spec is non-trivial.
 
@@ -141,7 +162,7 @@ Each check below is the mechanical execution of one Hard rule (stated once, belo
 | 8 | Cross-check against active ADRs in `ai/decisions/` | surface the conflict in the spec; never quietly redesign around it |
 
 ## Phase 7 — Improve
-- **Handoff (single next command):** `Next: /add-feature specs/<YYYYMMDD>-<slug>.md` — cite the `Spec-ID`. Add `--plan` to plan the feature and exit before any edit (`/add-feature specs/<…>.md --plan`). Mirror `/expand-task`'s one-next-command discipline; do not list a menu of follow-ups.
+- **Handoff (single next command):** with `--to-board`, `Next: /task refine` (the cards are studied already; refine checks them against the batch). Without it, `Next: /add-feature specs/<YYYYMMDD>-<slug>.md` — cite the `Spec-ID`. Add `--plan` to plan the feature and exit before any edit (`/add-feature specs/<…>.md --plan`). Mirror `/expand-task`'s one-next-command discipline; do not list a menu of follow-ups.
 - `/learn-from-task` — capture clarification patterns (which ambiguities recur).
 - If 3+ specs share a theme → queue ADR proposal: domain primitive (e.g. "every export needs async + permission gate").
 - Open questions left unresolved → append to `ai/dynamic/decisions-pending.md`.

@@ -50,6 +50,7 @@
 .claude/commands/fix-bug.md  9458877f24ff88cade6a13b358bab99d57e2fb569f9f788b40dc1f2282316e23
 .claude/commands/fix-bug.md  a19a0e5e76ad98e15efe7f6bae916bfee3b58f0ed72436f647ded27a69564044
 .claude/commands/fix-bug.md  a643a5cbeaa3c057587f42f8f42a470689b998b584eb7cb8f9c51515278f964b
+.claude/commands/fix-bug.md  a80b1beee499b3aac34acada3d46898a76c68ffcf44d4db6bfba6d80729f40f5
 .claude/commands/fix-bug.md  c8edf3c329fc4ac065bc47aacb9621d67de55f63e799534079935e5e97dd01b5
 .claude/commands/fix-bug.md  dcf20deddb0b3c3562a41e44293fda28beeeb9efe896cf8dfeb719d1c5698852
 .claude/commands/fix-bug.md  eb9fc0fb5d1de9a7043cc868c83767ae279623f42557ee3fcaee9a5328271329
@@ -165,6 +166,7 @@
 .claude/rules/read-before-write.md  770df35fa38edfc9fdf3342987c3f58a970693f6284d1545eb21126e0a9dcae1
 .claude/rules/read-before-write.md  b7bb9ff13605d6fae95ec45976b159e1a3f3d8c0797d66a8df931c250482fb8b
 .claude/rules/read-before-write.md  d761bb0d6dfdaba520236d1fca729affbe3149a584011995dffe83146c319d20
+.claude/rules/read-codebase-deeply.md  10a51508fe143fcc06464e03728effe08ad8bbf5d33b5b8f769e6bdbb660ce83
 .claude/rules/read-codebase-deeply.md  1859139d7076a59bba5fc0022204ed4d4c3f8b67ac10c854294076b6f38762f8
 .claude/rules/read-codebase-deeply.md  26ebcc4b9e953be570a9c2c7d49beee7b2dd9295eb1de96f80f00f9d6f751654
 .claude/rules/read-codebase-deeply.md  4725509a3026aef3362c718c96a1237ca3bdb8975f8b578b89a30758844e6769
@@ -407,6 +409,7 @@
 .claude/templates/snippets/standards-gate.md  22bcbb632dd99e47614d83923f5ed239f94cd4e089c101e586da813100ca874f
 .claude/templates/snippets/standards-gate.md  762d47d0be31c7998872e141bbc743f6ba7c1a3be5b63d394a8e783309fa3123
 .claude/templates/snippets/standards-gate.md  f0d764162fce02a289003df530702775369f0bbb9e2b83cd6bb190d0eda37603
+.claude/templates/snippets/study-before-build.md  9c8e11a262a0130dd190b9017e8cc41741de1b8157915717c71d1989004c0c71
 .claude/templates/snippets/test-level.md  aabb8f7758cebbcc61d720a2ad9d4c51a7fe7e103329e76025babf3de7c737c1
 CLAUDE.md  3c3cc4d9004f0ac52cd70fb9c1e0913a09146dabcbd9e079315d8fb5188cecc6
 CLAUDE.md  b6a8924662f22f08fa7ae77cc4914b9fcce9f288455003830a8158410de6f0a3
@@ -429,6 +432,8 @@ ai/business-flows.md  ed391c4f2eb03a6628c7f3fabd0978a9b54ef9ee5c06f44d60517069bf
 ai/business-model.md  63aea661727145f6daa44b2f3a021f185daea693dff7f6b32408e6ce4b53bd3f
 ai/business-model.md  799113e3f4c3cc58d040065505b7fae4098244cbe9eb6758e9d14c283c3ffdef
 ai/business-model.md  ec7227b266c01017796b076988a3202f196722e45b8a209134e688d2c2755d0b
+ai/business-rules-history.md  0761be1aaa2937304b6815d2264ee6b11538a280155b93c16dcd82c14c379f51
+ai/business-rules.md  be2cd43a3340a15b160f0646d724f0f33cd1ab97517175969effeceb6e54f7d7
 ai/competitive-context.md  81d687412b5910844dfefe2539c0ad51f7e461215f3282774f7bb4fb6e6ad0ce
 ai/competitive-context.md  e9b2e95e2daabf9739b5e2f0fe643d3458276b240dde883db975bddca7952739
 ai/competitive-context.md  fd6495831ae33137492137faaca6e500126ac9ebce4be80f1d8bddf249a5af16
@@ -465,6 +470,7 @@ ai/evals/_scorecard.md  75c6d90fed277a81834e0079ee0c724fa8c17cb1e04cb724685ba381
 ai/evals/cases/_template.md  e5e4e3370c764b18c5c00dff4c9cf9dce6fc17be1cb431e56b2c871097ff4abd
 ai/failures/README.md  38d424f9bb17b4809204db784d37117114b249e3c9bf529b2d8158d5062efacd
 ai/failures/_index.md  d4c1b62302096d333d27eeb1f7ac083691fa34a688fb2ce84cebfa7751677901
+ai/features/_index.md  2bcae684a63396a415a5ae3b2454ee14ce8dff757b8cb16e38299e24379fbe92
 ai/modules.md  21e4cf495fdb41b6de996f54c47a9eb505af66f4172758cb664eaf0278b14ca1
 ai/modules.md  72f17a1b16dcb7f2b14ea9b4858595be19e6aac38228e23ef454b5761fa5fa20
 ai/modules.md  761f08cab5e8092cb9b5f10739825f938b0b1cf5bd42f189b27ce2c79785644e
