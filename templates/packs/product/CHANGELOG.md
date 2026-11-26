@@ -6,6 +6,15 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 2.2.0 — 2026-11-26
+
+**`/define-success --readout` — the review date gets read.** `/define-success` wrote the metric,
+the counter-metric, the threshold and the rule before launch, but nothing read them afterwards.
+`--readout <slug>` measures both metrics for the window since the change was enabled, with the
+saved query. It compares them with the baseline, the target and the rollback threshold, and
+applies the rule exactly as written: keep, roll back, or wait for a large enough sample. The
+readout is appended to the definition file; the named owner decides.
+
 ## 2.1.0 — 2026-11-26
 
 **`/triage-support` — one customer message to a decision.** Nothing in Refract started from a

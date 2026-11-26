@@ -304,7 +304,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/audit-requirements` | Product audit: --spec reviews requirement prose; --repo finds half-built features, tracking-plan… | `--spec`, `--repo`, `--classes`, `--feature=<slug>`, `--live=<url>` | `/audit-requirements [--spec <spec \| ticket \| path>] \| [--repo [--classes=fs,an,en,lr,tr] [--feature=<slug>] [--live=<url>]]` |
-| `/define-success` | Define what success and damage look like before a change ships — the success metric with a baseline… | — | `/define-success [<change or feature>]` |
+| `/define-success` | Define what success and damage look like before a change ships — the success metric with a baseline… | `--readout` | `/define-success [<change or feature>] \| --readout <slug>` |
 | `/frame-problem` | Produce the problem brief before anyone designs a solution — who has it, what evidence says so… | — | `/frame-problem [<problem or feature request>]` |
 | `/product-fix` | Close /audit-requirements --repo findings: failing test first per class, root-cause fix, owning… | `--all` | `/product-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/synthesize-research` | Turn raw research material — interview notes, support tickets, session recordings, sales notes… | — | `/synthesize-research [<corpus or path>]` |

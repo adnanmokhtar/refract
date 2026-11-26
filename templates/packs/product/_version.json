@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "product",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "released": "2026-11-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/triage-support: one customer message to a decision — the feature it is about in the code, BUG / SETTING OR DATA / HOW-TO / FEATURE REQUEST / UNCLEAR with evidence, a reply draft in the customer's language (never sent), and a card through /task add when there is work.",
+  "summary": "/define-success --readout reads the metric and counter-metric on the review date and applies the rule written before launch (keep / roll back / wait); /triage-support (2.1.0).",
   "changelog": "CHANGELOG.md"
 }

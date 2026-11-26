@@ -6,6 +6,12 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/define-success --readout` — the review date gets read (2026-11-26)
+
+Product pack 2.2.0. On the review date, `--readout <slug>` measures the metric and the
+counter-metric that `/define-success` defined before launch. It applies the pre-committed rule as
+written (keep, roll back or wait) and appends the readout to the definition.
+
 ### `/doc-refresh --user` — help for the product's users (2026-11-26)
 
 Documentation pack 2.1.0. `--user=<feature>` writes how-to pages for the people who use the

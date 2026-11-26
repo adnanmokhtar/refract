@@ -100,6 +100,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "what broke in production" / "read the errors since yesterday" / "triage Sentry" / "new errors after the deploy" + **production errors, no single incident in progress** | `/triage-errors [--since=<window>]` (observability pack) — one incident in progress is `/investigate-incident` |
 | "a customer says …" / "answer this support ticket" / "is this a bug or user error" / a pasted customer message + **one message** | `/triage-support <message>` (product pack) — many messages read for themes is `/synthesize-research` |
 | "write help for our users" / "a how-to page for <feature>" / "what's new in this release" / «دليل المستخدم» | `/doc-refresh --user[=<feature\|release>]` (documentation pack) — docs for developers are `/doc-refresh` without the flag |
+| "did the change work" / "read the experiment" / "should we keep it or roll back" + **a change with a success definition** | `/define-success --readout <slug>` (product pack) |
 
 For ambiguous descriptions, the agent asks one clarifying question.
 

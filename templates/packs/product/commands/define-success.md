@@ -1,11 +1,11 @@
 ---
-description: Define what success and damage look like before a change ships — the success metric with a baseline and a target, the counter-metric with a rollback threshold, the instrumentation each requires, and the kill criteria with a named owner and a review date.
+description: Define what success and damage look like before a change ships — the success metric with a baseline and a target, the counter-metric with a rollback threshold, the instrumentation each requires, and the kill criteria with a named owner and a review date. --readout reads the numbers on the review date and applies the pre-committed rule.
 kind: command
 pack: product
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
-# /define-success [<change or feature>]
+# /define-success [<change or feature>] | --readout <slug>
 
 Turn "we think this will help" into two numbers, a threshold, a date, and an owner — while there is still time to instrument them. A metric decided after launch is a metric that will be chosen to fit the result.
 
@@ -15,6 +15,7 @@ Turn "we think this will help" into two numbers, a threshold, a date, and an own
 - NOT: to choose which metrics a domain's dashboard should carry — that is `/suggest-metrics` in the business pack, which answers a broader question.
 - NOT: to instrument telemetry — that is `/add-telemetry` in the observability pack; this command decides what to instrument and hands it over.
 - NOT: to decide whether the change is worth making — that is `/frame-problem`.
+- USE `--readout <slug>`: on or after the review date in `ai/product/success/<slug>.md`, to read the numbers and apply the rule written before launch.
 
 ## Phases applied
 
@@ -133,6 +134,34 @@ grades the feature against its stage's level. It is the step most often skipped 
   where a `NOT READY` verdict is unactionable.
 - Where any instrumentation gap was marked `blocks launch: yes`, that gap and this dispatch are the
   same piece of work — the gate cannot pass until the gap closes, so closing it is what unblocks both.
+
+## `--readout <slug>` — read the result against the rule written before launch
+
+A success definition is only worth something if someone reads it on the review date, and reads it
+against the rule decided before the data arrived. This mode does that.
+
+1. **Read** `ai/product/success/<slug>.md`: the metric, the counter-metric, the baseline, the
+   threshold, the `decision_rule`, the owner and the review date. Before the review date, say how
+   many days are left and stop, unless the person asks for an early look. An early look is labelled
+   as one and decides nothing.
+2. **Measure** both metrics for the window since the change was enabled, with the saved `query`
+   or the analytics source the definition names. Use the same window length as the baseline. A
+   metric that cannot be queried prints `not measured — <why>`, never an estimate.
+3. **Compare:**
+   - the metric against its baseline and target;
+   - the counter-metric against its rollback threshold;
+   - the sample size, against what the definition said is enough. Too small → `wait`, with the date
+     it will be enough.
+4. **Apply the rule as written:**
+   - `keep` — the metric met its target and the counter-metric stayed inside its threshold;
+   - `roll back` — the counter-metric crossed its threshold, whatever the metric did;
+   - `wait` — the sample is too small, or the review date has not come.
+
+   Never re-word the rule to fit the result. A result the rule did not foresee is reported as such,
+   for the owner to decide.
+5. **Write** a `## Readout <YYYY-MM-DD>` section at the end of `ai/product/success/<slug>.md`, with
+   the numbers, the queries that produced them and the verdict. The decision belongs to the named
+   owner; the readout informs it.
 
 ## Output format
 
