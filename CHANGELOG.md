@@ -6,6 +6,13 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/doc-refresh --user` — help for the product's users (2026-11-26)
+
+Documentation pack 2.1.0. `--user=<feature>` writes how-to pages for the people who use the
+product: one per task, in their language, with the screen's own labels, each step checked against
+the code. `--user=<release>` writes a what's-new list from the release's cards and PRs, with no
+internal names.
+
 ### `/triage-support` — one customer message to a decision (2026-11-26)
 
 A new command in the product pack, installed per project. It finds the feature a customer message

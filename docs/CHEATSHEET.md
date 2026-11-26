@@ -188,7 +188,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/add-adr` | Write a new ADR where the project keeps them (docs/adr, docs/decisions, ai/decisions…): sibling… | — | `/add-adr [title]` |
 | `/add-runbook` | Author an operational runbook (incident, deploy, rollback, on-call) beside the project's runbooks… | `--type=<incident\|deploy\|rollback\|migration\|cutover\|on-call>`, `--related-adr=<NNN>`, `--related-feature=<id>` | `/add-runbook <name> [<description>]` |
-| `/doc-refresh` | Docs refresh after a change (default), a read-only docs audit with a class ledger and verdict… | `--audit`, `--whole-repo`, `--from-audit=<report>`, `--classes=<family,…>`, `--network`, `--no-exec` | `/doc-refresh [base] [--audit] [--whole-repo] [--from-audit=<report>] [--classes=<family,…>] [--network] [--no-exec]` |
+| `/doc-refresh` | Docs refresh after a change (default), a read-only docs audit with a class ledger and verdict… | `--audit`, `--whole-repo`, `--from-audit=<report>`, `--user`, `--classes=<family,…>`, `--network`, `--no-exec` | `/doc-refresh [base] [--audit] [--whole-repo] [--from-audit=<report>] [--user[=<feature\|release>]] [--classes=<family,…>] [--network] [--no-exec]` |
 
 ## Pack — finops
 

@@ -1,11 +1,11 @@
 ---
-description: "Docs refresh after a change (default), a read-only docs audit with a class ledger and verdict (--audit), or a failing-first docs fix (--from-audit)."
+description: "Docs refresh after a change (default), a read-only docs audit with a class ledger and verdict (--audit), a failing-first docs fix (--from-audit), or help pages and what's-new for the product's users (--user)."
 kind: command
 pack: documentation
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task, Skill]
 ---
 
-# /doc-refresh [base] [--audit] [--whole-repo] [--from-audit=<report>] [--classes=<family,…>] [--network] [--no-exec]
+# /doc-refresh [base] [--audit] [--whole-repo] [--from-audit=<report>] [--user[=<feature|release>]] [--classes=<family,…>] [--network] [--no-exec]
 
 > **Run contract — read before the first tool call.** (1) **Load the detectors first.** Your first tool calls are Skill calls, one per detector in this command's dispatch table whose surface the tree has, sent as one parallel batch; a plugin install lists them as `<plugin>:<name>`. A missing shell does not skip this step: apply each loaded detector by hand — its *Read the code* questions, BAD/GOOD blocks, finding condition and severity rule — and mark it `checked (manual)` ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)). (2) **One line per finding, opening with its own `path:line`:** the line that is wrong, not its caller, the file that configures it or the function's first line. Only a list marker, bold or one severity word come before it; a bucket word such as *unconfirmed* goes after it. A finding about something missing opens on the line that declares the missing thing (a required env key no doc names, a planned event nothing fires, a credential name no redaction list masks) and says where it is missing. Sites with different fixes are separate lines ([`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape). (3) **When the ask wants real problems only** ("leave out code that only looks risky"), the chat prints Finding and Unconfirmed rows only. Code that was checked and cleared — sound, refuted, hardening, verified controls, "reviewed and not reported", "left out" — gets no row, no section and no `path:line`: it is a count in the `Verification:` line. Hardening is not low severity: a detector's LOW finding is a Finding ([`refute-before-report.md`](../../../snippets/refute-before-report.md) § 5).
 
@@ -13,13 +13,14 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task, Skill]
 
 ## The Premise (read this first, internalize, do not deviate)
 
-**A doc is true when its claims resolve against the code, the config and the other docs, and when the steps it gives can be followed. Proven, not read.** Three modes share one engine and one set of detectors:
+**A doc is true when its claims resolve against the code, the config and the other docs, and when the steps it gives can be followed. Proven, not read.** Four modes share one engine and one set of detectors:
 
 | Mode | What it does | Writes |
 |---|---|---|
 | **default** (`/doc-refresh [base]`) | The post-change refresh. Re-derives the knowledge files the diff touched from code, then runs the four gates **on the diff scope** and computes PRODUCTION-GRADE or INCOMPLETE | `ai/status.md`, the knowledge files the diff changed, `ai/dynamic/drift-log.md`; ADRs and runbooks only through `/add-adr` and `/add-runbook` |
 | **`--audit`** | Read-only. Maps the doc set, dispatches every detector, refutes every candidate through a verifier, prints the class ledger and a GO / GO-UNVERIFIED / NO-GO verdict | the report `ai/audits/<date>-docs.md` and the refute run folder only |
 | **`--from-audit=<report>`** | Closes the report's findings one at a time: the recheck fails first, the doc is edited, the recheck and the whole class re-run pass. A doc that **is** the contract is never edited to bless the code: STOP and route | doc files inside the doc-writer paths, the fix ledger `ai/audits/<date>-docs-fix.md` |
+| **`--user[=<feature\|release>]`** | Help for the product's **users**, not its developers: one how-to page per feature, in the product's language and its own screen names, or a what's-new for a release written from the cards and PRs it carries. Every step is checked against the screen or route it names | pages in the project's help folder (`docs/help/` when it has none), never `ai/` |
 
 The engine is `doc-drift-scan`'s `scripts/doc-claims.py` (under the skill's base directory, which the Skill tool prints when `doc-drift-scan` loads: `.claude/skills/doc-drift-scan/` in a copied install, the plugin's own skill directory in a plugin install; stdlib Python, never writes into the repo, exit `0` clean · `1` candidates · `2` blocked). The detectors:
 
@@ -55,6 +56,7 @@ The engine is `doc-drift-scan`'s `scripts/doc-claims.py` (under the skill's base
 | "update the docs after this change", "refresh ai/", no flag | default |
 | "are the docs true", "audit the docs", "docs before launch", `--audit` | `--audit` |
 | "fix what the docs audit found", a report path, finding ids | `--from-audit` |
+| "write help for users", "how-to page for <feature>", "what's new in this release", «دليل المستخدم» | `--user` |
 | "write an ADR" / "write a runbook" | `/add-adr` / `/add-runbook` |
 | "the spec is out of date with the code" | backend `/backend-audit` (when installed); else `--audit` lists it `→ backend http-contract-scan §10 (owner pack backend not installed)` |
 
@@ -117,6 +119,25 @@ refresh <scope> <date> — drift DEAD=<n> WRONG=<n> UNDOCUMENTED=<n> STALE=<n> �
 ```
 
 A verdict that contradicts its own counts means the refresh did not close.
+
+## `--user` — help for the product's users
+
+Every other mode writes for developers. This one writes for the people who use the product, in
+their language.
+- **`--user=<feature>`** — one how-to page per task the feature lets a user do:
+  - the goal in one line;
+  - numbered steps that use the screen's own labels, read from the UI copy and the locale files,
+    never invented;
+  - what each role can and cannot do;
+  - the common mistakes, taken from `/triage-support` HOW-TO cases when there are any.
+- **`--user=<release>`** (a tag, or `next` for what the integration branch holds beyond the release
+  branch) — a what's-new list, one line per change a user can see, written from the cards and PRs
+  it carries. No internal names, file paths or ticket numbers.
+- **Checked:** every step names a screen, button or route that exists in the code at HEAD. A step
+  that names nothing real is removed, not guessed. With a running dev server, `verify-with-playwright`
+  (frontend pack) walks the steps and takes the screenshots.
+- **Writes** to the project's help folder (`docs/help/` when it has none), one file per page, in
+  each locale the product ships. Never `ai/`, which is for agents.
 
 ## `--audit` — read-only
 

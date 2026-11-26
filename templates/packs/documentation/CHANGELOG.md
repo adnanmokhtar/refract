@@ -9,6 +9,15 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-11-26
+
+**`/doc-refresh --user` — help for the product's users.** Every documentation mode wrote for
+developers (README, `ai/`, ADRs, runbooks, changelogs). Nothing wrote for the people who use the
+product. `--user=<feature>` writes one how-to page per task, with steps that use the screen's own
+labels from the UI copy and the locale files. `--user=<release>` writes a what's-new list from the
+cards and PRs a release carries. Every step is checked against a screen or route that exists at
+HEAD. Pages go to the project's help folder, in each locale it ships.
+
 ## 2.0.1 — 2026-10-19
 
 - `doc-writer` carries a generated `## Boundary` block (`scripts/gen-boundaries.py`, from `templates/governance/ownership.json`).
