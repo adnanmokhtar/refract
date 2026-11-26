@@ -316,7 +316,7 @@ time. Scheduled: `/schedule` → "every Sunday 09:00, run `/task status`".
    - **`/task`'s own earlier comments** (they end with the reference line, or open with a commit SHA in the older format) are history — what was tried and where it stopped — never new requirements. They post under the token owner's name, so the author alone does not tell them apart.
    - Questions in comments that nobody answered → they join the brief's questions; the card is not built until they are answered.
    - Links and Drive files in comments are attachments (Phase 3).
-6. **Study, brief, approval — before the start-move.** Run [`study-before-build.md`](../templates/snippets/study-before-build.md) on the card (Phase 3 reads feed it). The card has an approved brief with no open question → go on. Otherwise:
+6. **Study, brief, approval — before the start-move, for every card, refined or not.** Run [`study-before-build.md`](../templates/snippets/study-before-build.md) on the card (Phase 3 reads feed it). Write the study and the brief to `ops-local/refine/<card-key>.md`, so the plan is in a file before anyone approves it. The build copies them into `ai/features/<YYYY-MM-DD>-<slug>/` (`brief.md`, `study.md`). The card has an approved brief with no open question → go on. Otherwise:
    - **a single card in a session:** print the brief and wait for the person's OK or answers;
    - **in a drain:** post the brief on the card (§ *Refine mode*) and take the next card.
 
