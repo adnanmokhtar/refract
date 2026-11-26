@@ -26,7 +26,7 @@ read ONLY this — never raw provider fields.
 
 ```yaml
 TaskSpec:
-  provider:   trello | jira | linear | github   # which adapter produced this
+  provider:   trello | jira | linear | github | clickup   # which adapter produced this
   id:         <stable internal id>               # for API calls
   key:        <human ref>                        # PROJ-123 / card shortLink / #42
   url:        <permalink>                         # for the write-back comment
@@ -36,7 +36,7 @@ TaskSpec:
   subtasks:   [{ text: <string>, done: <bool> }] # checklist / sub-issues / task-list
   attachments: [{ name, url, mime, localPath }]  # downloaded in Phase 3
   labels:     [<string>, ...]
-  comments:   [{ author, date, text, own: <bool> }] # oldest first; own = posted by /task (ends with its reference line)
+  comments:   [{ author, date, text, own: <bool> }] # oldest first; own = posted by /task (ends with a `Ref:` line or the line `— /task`)
   priority:   <string|null>
   assignee:   <string|null>
   status:     <current provider status name>
@@ -55,7 +55,14 @@ If none found → `acceptanceCriteria: []` and Phase 6 falls back to "title inte
 ## Adapters
 
 Each adapter declares five things: **ref detection**, **fetch**, **field map**,
-**status verbs**, and **create** (used only by `/task add`). Tool names are the provider MCP's tools — discover the exact names
+**status verbs**, and **create** (used by `/task add`, and by `/analyze-task` and `/expand-task` with `--to-board`).
+
+**Lists on every provider.** `task-flow.json`'s `pickFrom`, `fixLists`, `waitIn`, `addTo`,
+`start`, `review` and `done` name a Trello list, a Jira status, a Linear state, a ClickUp status,
+or a GitHub label. `next`, `refine` and the moves read and write that same field on each provider
+(Jira: transition to the status; Linear: `stateId`; ClickUp: `status`; GitHub: add the label and
+remove the previous flow label). With no `task-flow.json`, each adapter's own `next` below applies,
+and `refine` reads the same cards `next` would. Tool names are the provider MCP's tools — discover the exact names
 at runtime via ToolSearch; the names below are the expected shape.
 
 ### trello — `@delorenj/mcp-server-trello`
@@ -70,7 +77,7 @@ at runtime via ToolSearch; the names below are the expected shape.
 - **fetch**: `get_issue` (expand subtasks, attachments, comments).
 - **field map**: `summary`→title · `description` (ADF→markdown)→description · `subtasks[]`→subtasks · `attachment[]`→attachments · `labels[]`→labels · `priority.name`→priority · `assignee.displayName`→assignee · `status.name`→status.
 - **status verbs**: `transition_issue` through the board workflow — `start`=In Progress, `review`=In Review, `done`=Done; `add_comment` for the write-back. (Transition names vary per board — read available transitions first, match case-insensitively.)
-- **create**: `create_issue { project, issuetype, summary, description, labels }` — the issue type is the project's own name for a story or a bug (read `GET /rest/api/3/issue/createmeta` first).
+- **create**: `create_issue { project, issuetype, summary, description, labels }` — the issue type is the project's own name for a story or a bug (read `GET /rest/api/3/issue/createmeta` first); then transition it to the `addTo` status when that is not the project's initial status.
 
 ### linear — `@tacticlaunch/mcp-linear`
 - **ref**: `linear.app/<team>/issue/ABC-123` URL · `ABC-123` · `linear:ABC-123` · `next` (assigned, state ≠ Done/Canceled, ordered by priority).
@@ -84,7 +91,7 @@ at runtime via ToolSearch; the names below are the expected shape.
 - **fetch**: `get_issue`; `list_issue_comments`.
 - **field map**: `title`→title · `body`→description · markdown task-list `- [ ]`→subtasks · image/file links in body→attachments · `labels[].name`→labels · milestone/`priority:*` label→priority · `assignee.login`→assignee · `state`→status.
 - **status verbs**: `add_labels` (`in-progress`, then `needs-review`) — GitHub has no In-Progress state, so labels stand in; `add_issue_comment` for the write-back; `update_issue { state: closed }` on `done`.
-- **create**: `create_issue { title, body, labels }`, or `gh issue create --title … --body-file … --label …`.
+- **create**: `create_issue { title, body, labels }`, or `gh issue create --title … --body-file … --label …` — `labels` includes the `addTo` label.
 
 ### clickup — REST API v2 first · official MCP `https://mcp.clickup.com/mcp` optional
 - **channel**: REST over `CLICKUP_API_TOKEN` (a personal token, `pk_…`, sent as `Authorization: <token>`), base `https://api.clickup.com/api/v2`. **REST is the primary channel here, not the fallback**: the official MCP signs in by OAuth only (an interactive `/mcp` step, no token) and is capped per day by plan — 100 calls/day on Free, 300 on Unlimited — which one drain can spend. Use the MCP only when no token is set. REST allows 100 requests/min per token on the lower plans.
@@ -100,7 +107,7 @@ at runtime via ToolSearch; the names below are the expected shape.
 ---
 
 ## Adding a new provider (Asana, Notion, Azure Boards, …)
-1. Add a `### <id> — <package>` adapter block above with the four sections.
+1. Add a `### <id> — <package>` adapter block above with the five sections.
 2. Add a detection + config block to `scripts/detect-mcp.sh` (gate on the repo's own `.env` creds; mirror the trello/jira/linear blocks).
 3. Document the env-var names and verify them against the server's README.
 That's it — `commands/task.md` requires no edit; it reads adapters generically.

@@ -20,7 +20,7 @@ architecture-reviewer checks the code against them.
 role: writer
 inputs:
   required: [run_id]
-  reads:    [ai/runs/{run_id}/requirements.md, ai/runs/{run_id}/quality-attributes.md (draft),
+  reads:    [ai/runs/{run_id}/study.md and brief.md (start from them; do not repeat a search the study recorded), ai/runs/{run_id}/requirements.md, ai/runs/{run_id}/quality-attributes.md (draft),
              ai/runs/{run_id}/ux.md (UI lanes), ai/runs/{run_id}/run.json (tier, lanes),
              .claude/skills/lane-{lane}/SKILL.md § Binding constraints for every lane in run.json,
              ai/architecture.md, ai/modules.md, ai/_decision-index.md, ai/patterns/*.md named by a signal,

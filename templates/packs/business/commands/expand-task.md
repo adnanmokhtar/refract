@@ -15,7 +15,7 @@ Most "fix login bug" / "make orders faster" tickets are one line. This produces 
 
 **The agent's job is exactly this:**
 1. Read 1-2 sibling specs in `specs/` to lock the section list + terminology.
-2. Mirror them: `Goal / Context / Acceptance criteria / Scope (in) / Scope (out) / Edge cases / Affected modules / Estimated complexity / Suggested flow`.
+2. Mirror them: `Brief / What exists today / Goal / Context / Acceptance criteria / Scope (in) / Scope (out) / Edge cases / Affected modules / Estimated complexity / Suggested flow`. `Brief` and `What exists today` are always present, whatever the siblings have: the study produces them.
 3. Cite the brief on every line — every claim ties back to a sentence in the original brief OR a clarification answer. No invented requirements.
 4. Stakeholder-decision items stay flagged, never invented. "Should this support X?" → ask, do not guess.
 
@@ -58,7 +58,7 @@ A spec produced without sibling-shape parity is rejected; regenerate or halt.
 ## Phase 1 — Understand (the ask)
 
 1. Take the brief input verbatim. Don't paraphrase yet.
-2. Ask clarifying questions in ONE consolidated round (don't ping-pong):
+2. **Study first, then ask once.** Run the Phase 3 study before asking anything; a question the code, the rules file or a precedent answers is not asked. The questions that remain, together with the ones below, go out in ONE consolidated round (don't ping-pong):
    - User outcome: what does success LOOK like to the user?
    - Symptom or metric: a specific page, error code, latency number, support ticket?
    - Audience: all users / specific role / specific tenant / internal-only?
@@ -88,6 +88,12 @@ Produce the full task prompt in this shape:
 
 ```markdown
 ## Task: <expanded title>
+
+### Brief
+<study-before-build.md § 6: problem, we will, steps, not changing, where, test it, questions>
+
+### What exists today
+<current behaviour · precedent · every place it applies · existing data · conflicts — with paths>
 
 ### Goal
 <one-sentence outcome>
@@ -127,7 +133,7 @@ End with ONE suggested next command — the most likely tool for this task (`/ad
 
 - Save to `specs/<YYYYMMDD>-<slug>.md` if the user asks for a doc — stamp a `Spec-ID: <slug>-<4char-hash>` header so `/add-feature specs/<file>` can consume it and backreference it in commits/PR (same contract as `/analyze-task`); otherwise return inline.
 - If a stakeholder open-question was surfaced → append to `ai/dynamic/decisions-pending.md`.
-- **`--to-board`** → file the expanded task as one card through `/task`'s § *Add mode* steps 3–7 (brief, `## Acceptance Criteria`, the board's labels, source line; duplicates skipped; `addTo`, never a pick list; one confirmation).
+- **`--to-board`** → runs after Phase 6, once the person has confirmed the spec, and only with no open question left: file the expanded task as one card through `/task`'s § *Add mode* steps 3–7 (brief, `## Acceptance Criteria`, the board's labels, source line; duplicates skipped; `addTo`, never a pick list; one confirmation), and post its Plan comment and, once the person confirmed the spec, its ✓ comment (`/task` § *Refine mode*). The board is the source of truth. Locally, after `study-before-build.md` § 0's `git check-ignore` line, it also writes `ops-local/refine/<card-key>/brief.md` (status `approved` once confirmed; origin list left for `/task` to record) and `study.md`.
 - No `ai/status.md` entry yet (this is pre-work; wait for execution).
 
 ## Phase 6 — Validate (verify correctness)
@@ -180,7 +186,7 @@ Next: /add-feature specs/20260424-orders-performance.md
 ## Failure modes
 
 - Brief is too vague after one clarification round → say so and stop. Guessing produces wrong code.
-- User insists on no clarification round on a vague brief → produce the spec but mark it `LOW_CONFIDENCE` at the top with explicit assumptions called out.
+- User insists on no clarification round on a vague brief → stop with the questions listed. A spec built on assumptions is not produced, and `--to-board` never files one.
 - Stakeholder decision needed → don't proceed to spec; surface the open question.
 - Brief contradicts existing roadmap (`ai/status.md` says we're in Phase 1, brief is Phase 3 work) → flag the scope creep before producing the spec.
 

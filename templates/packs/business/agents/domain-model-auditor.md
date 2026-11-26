@@ -19,7 +19,7 @@ The shape this agent takes and returns — `.claude/templates/snippets/contract-
 role: judge
 inputs:
   required: [scope]             # one feature or aggregate, or "whole repo" under /audit-business; plus detector rows when the caller already ran them
-  reads:    [ai/business-rules.md, the four detectors' coverage blocks and rows, their registers in the run folder (money-policy.md, tax-policy.md, ledger-inventory.md, metrics.md), the entity and migration files a row cites, .claude/_refine-extract.md § Domain entities when present, ai/business-domain.md]
+  reads:    [ai/business-rules.md, ai/business-rules-history.md, ai/business-flows.md, the four detectors' coverage blocks and rows, their registers in the run folder (money-policy.md, tax-policy.md, ledger-inventory.md, metrics.md), the entity and migration files a row cites, .claude/_refine-extract.md § Domain entities when present, ai/business-domain.md]
   never:    [the builder's summary, PR text, commit messages, the detector's reasoning behind a row]
 output:
   returns:  the '## Output' block, ending in the invariant-enforcement register
@@ -34,7 +34,7 @@ next:       /business-fix (graded rows) · the owner named in § Routed (routed 
 
 ## The Premise (read first, do not deviate)
 
-**(0) This project's rules come first.** Before judging, read `ai/business-rules.md` (and `ai/business-rules-history.md` for how a rule got there). A behaviour a recorded rule asks for is the business's decision, not a finding, however a typical business of this kind would do it; when the code and the recorded rule disagree, report the disagreement and quote both. A diff that changes a rule and leaves both files untouched is an IMPORTANT finding (`.claude/templates/snippets/study-before-build.md` § 7).
+**(0) This project's rules come first.** Before judging, read `ai/business-rules.md` (and `ai/business-rules-history.md` for how a rule got there). A behaviour a recorded rule asks for is the business's decision, not a finding, however a typical business of this kind would do it; when the code and the recorded rule disagree, report the disagreement and quote both. A diff that changes a rule and leaves either file untouched is an IMPORTANT finding (`.claude/templates/snippets/study-before-build.md` § 8).
 
 **(a) Rows in, judgements out.** On a diff or one feature, run the detectors whose signal the scope carries (§ Dispatch) through the Skill tool, with `ROOTS` set to the server code only, as an array (`ROOTS=(apps/api/src)`): a space-joined string does not split in zsh, `rg` searches one path that does not exist and exits 2, and that reads as zero hits. Under `/audit-business`, judge the rows the caller passes. Never re-grep a class a detector owns; a § a detector printed `blocked`, `N/A` or `Live, unreviewed` stays exactly that here.
 

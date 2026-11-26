@@ -7,7 +7,16 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 > **This is the universal-minimum baseline.** It is the subset every project inherits. Pack equivalents (e.g. `templates/packs/backend/commands/fix-bug.md`) are **enriched supersets** that add ceremony (telemetry-gap check, signal-aware reviewer cascade, postmortems) on top of — never instead of — this baseline. Both share the two non-negotiable invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md): **failing-test-first** and the **similar-bugs ledger**. If this file ever contradicts that snippet, the snippet wins.
 >
-> **`--plan`**: this command honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/fix-bug <desc> --plan` diagnoses + plans, writes the plan file, and exits before any edit.
+> **`--plan`**: this command honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/fix-bug <desc> --plan` studies, gets the brief approved, reproduces and diagnoses (read-only, `diagnosis.md`), and writes the plan file, then exits before any edit. The plan embeds the brief and study, and its Outputs include the record. Its last Step runs `/fix-bug --resume=<run-id>` for Phase 5–6: the record, the rules check and the verifier.
+>
+> **`--resume=<run-id>`** (from `/task` after a parked card was answered, or from a plan's last Step): continue that run in its worktree, at the first step whose marker is missing:
+> - `ai/runs/<run-id>/diagnosis.md` (4b);
+> - a red run of the new test in `.claude/evidence/test-runs.jsonl`, then a locked `ai/runs/<run-id>/acceptance.json` (4c);
+> - a green run of the same test after it (the fix);
+> - `ai/runs/<run-id>/verdict.json` (the verifier);
+> - the record folder (Phase 5).
+>
+> Do not study or ask again. When the run folder is not there (another machine), start over at Phase 1's first bullet, "Open the run here", with the approved brief. The worktree `/task` cut holds no WIP code (it lives only on `wip/<branch>`), so the new test fails before any fix.
 >
 > **`--fast`** (emergency hotfix): production is broken and the fix must ship now. Branches from the **production/default** branch, makes the smallest correct change, writes **one** critical-path regression test (not the full class), opens a `[HOTFIX]` PR, and files a follow-up for full coverage + backport. See "§ `--fast` — emergency hotfix mode" below. `--fast` and `--plan` are mutually exclusive (planning is not an emergency posture).
 
@@ -29,12 +38,15 @@ A reported bug is a sample, not the population. The same root cause that broke s
 - Draft an ADR for a trivial fix. ADRs document new defensive patterns; a 1-line null check is not a new pattern.
 - Ask the user "are these really the same bug?" — apply the literal-expression test: same buggy expression = same bug.
 
-**The agent ONLY asks the user when:**
+**The agent asks the user, before any code:**
+- **The brief and its questions** (Phase 1, `study-before-build.md`): is it a bug or a recorded rule, every other place with the same behaviour, existing records, conflicts. The brief is approved before the fix, and nothing in it is assumed.
+
+**On top of the brief, the agent asks only when:**
 - The fix needs another repo (cross-repo blocker).
 - Root cause sits in a shared utility / library where one fix changes behavior for many callers (ripple risk).
 - The bug reveals an entirely missing test class (the right answer is "add the class," which is scope expansion the user must approve).
 
-That's it. Three escalation triggers. Everything else — sibling-scan, fix-all-N, verify with the project's existing tests — is silent and one diff. Default is **trivial-tier**: just fix it.
+That's it: the brief, plus three escalation triggers. Once the brief is approved, everything else — sibling-scan, fix-all-N, verify with the project's existing tests — is one diff with no further questions. Default is **trivial-tier**: a short brief, then the fix.
 
 ## Closure-verb table (bug complexity → ceremony)
 
@@ -55,7 +67,10 @@ Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md
 
 ## Similar-bugs scan (mechanical halt — applies at standard + heavy)
 
-After the reported-site fix is applied:
+It runs twice. First in the study (Phase 1), for the pattern the report already shows, so the brief
+lists those sites. Then here, after the reported-site fix, for the root-cause pattern diagnosis
+found. A site with the same literal expression is the same bug: fixed and listed, with no new
+question. A broader or different fix is a question (`study-before-build.md` § 3).
 
 1. **Grep the codebase** for the literal root-cause pattern (the actual buggy expression — `if (user)` not `null check`; `.map(x => x.toLowerCase())` not `case insensitivity`).
 2. **Count hits.** Each hit is one of three:
@@ -89,6 +104,7 @@ Use when production is actively broken and time-to-mitigation dominates. `--fast
 | Follow-up | — | **Mandatory ticket**: full similar-bugs scan, generalized regression test, failure-catalog entry, and **backport** of the fix into the mainline branch if it diverged |
 
 **Still mandatory even in `--fast`:**
+- **The brief, in one line, before the fix.** Production is down, so the wait is skipped unless the brief has an open question; a question still stops the fix.
 - **Failing test before the fix.** The critical-path test must be red for the diagnosed reason, then green after. An unverified hotfix is how the second outage starts.
 - **Root cause, not symptom.** A `try/catch` that swallows the error is not a hotfix — it's a new bug with a deadline.
 - **The follow-up is filed before the PR merges.** "We'll do it later" without a ticket ID = it never happens; the mechanical halt is: `--fast` PR refuses merge unless it references a follow-up ticket.
@@ -116,7 +132,7 @@ Parse the user's description for keywords that indicate a different command is t
 |---|---|---|
 | "broken" / "crash" / "error" / "wrong output" / "regression" / "doesn't work" — actual bug | `/fix-bug` (this command) | Proceed |
 
-If ambiguous: ASK "is this incorrect behavior, or a quality / enhancement task?" Route based on answer.
+If ambiguous: "is this incorrect behavior, or a quality / enhancement task?" is the first question in the brief (Phase 1, below), asked with the others before any code. Route on the answer.
 
 If user insists on `/fix-bug` for a non-bug task, proceed but flag in the run summary that a redirect was suggested but overridden.
 
@@ -134,23 +150,32 @@ Capture from user / ticket:
 If user provides a stack trace, error message, log line, or screenshot, treat as primary evidence.
 
 ### Is it a bug? Then the brief (before any code)
-- **Check the expected behaviour against `ai/business-rules.md`.** If a recorded rule makes
-  today's behaviour intended, it is not a bug: say so, quote the rule, and stop. Asking to change
-  the rule is a change request: `/add-feature`, or a question to the owner.
-- **Study the area** with [`study-before-build.md`](../templates/snippets/study-before-build.md) § 2–5:
+- **Open the run here.** Run id `<YYYYMMDD>-<slug>-<4hex>`; create `ai/runs/<run-id>/`. Under
+  `/task` (`brief=approved`, `record=<folder>`), copy `brief.md` and `study.md` from the record
+  folder into the run and go to Phase 2. The card was studied and approved, and `/task` has
+  already settled whether it is a bug.
+- **Study the area** with [`study-before-build.md`](../templates/snippets/study-before-build.md)
+  § 0–6:
+  - the rules of the area (§ 1, read from the code where `ai/business-rules.md` has no section);
   - the precedent;
-  - every other screen, portal or role with the same behaviour ("fix it in all of them?" — the
-    similar-bugs scan below finds code siblings; this finds scope);
+  - every other screen, portal or role with the same behaviour ("fix it in all of them?");
+  - **every site with the same cause**: run the similar-bugs search below now, so the brief lists
+    them;
   - existing records or new only;
   - conflicts with today's rules.
-- **The brief** (§ 6): the cause when it is already known, what will change and where, what stays,
-  how to test, and the questions.
-  - **Run by a person directly:** print the brief and wait for the OK or the answers before Phase 2.
-  - **Run by `/task` with an approved brief:** go on.
 
-  An open question is asked, never assumed.
-- **A fix that changes a business rule** updates `ai/business-rules.md` in place and appends to
-  `ai/business-rules-history.md` in the same commit (§ 7).
+  Write `brief.md` and `study.md` into the run folder.
+- **Check the expected behaviour against the rules.**
+  - **Only a recorded rule** in `ai/business-rules.md` makes today's behaviour intended, so not a
+    bug. Say so, quote the rule, and ask "keep it, or change it?". Changing it is a change request
+    (`/add-feature`). Status: `NOT A BUG — <rule>`.
+  - **A guard or condition the code enforces that no recorded rule covers** may be deliberate. Ask
+    "intended?" in the brief; never decide it alone.
+- **The brief** (§ 6): the cause when it is already known, what will change and where, every site
+  with the same cause, what stays, how to test, and the questions. Run directly by a person:
+  print it and wait for the OK, per § 7. An answer that adds work needs the revised brief
+  approved. An open question is asked, never assumed. Only `--fast`, typed by the person, skips
+  the wait, and only when the brief has no open question.
 
 ## Phase 2 — Organize (decompose)
 
@@ -209,6 +234,8 @@ If still not reproducible:
 - Document inability to reproduce as a finding; ship the observability.
 
 ### 4b. Diagnose
+
+Write the diagnosis (root cause, the site, the evidence) to `ai/runs/<run-id>/diagnosis.md`, so a parked or planned run can resume from it.
 
 Trace the bug to its root cause:
 - For backend: trace through controller → service → repo → DB. Where does the wrong value originate?
@@ -271,6 +298,16 @@ Then the review lenses (their candidates go through refute-before-report before 
 
 ## Phase 5 — Update
 
+- **The record — every run, direct or under `/task`** (`study-before-build.md` § 9):
+  `ai/features/<YYYY-MM-DD>-<slug>/` with:
+  - `brief.md` and `study.md`;
+  - `design.md` — the cause, and what the fix changed, where and why;
+  - `acceptance.md` — the expected behaviour and the regression test that pins it.
+
+  A direct run also appends the `ai/features/_index.md` line. Under `/task`, `/task` appends it.
+- **Business rules:** a fix that changes a rule updates `ai/business-rules.md` in place and
+  appends to `ai/business-rules-history.md` in the same commit (§ 8).
+
 - `ai/failures/_index.md` — one appended `### <YYYY-MM-DD> — <slug>` entry (the ONE append-only failure catalog; never a per-entry file). Captures: what we tried, why it failed (if previous attempts), root cause, what we did, don't-retry conditions.
 - `ai/dynamic/changelog.md` — entry for the bug fix.
 - `ai/patterns/<name>.md` — IF a new pattern was extracted to prevent recurrence (rare; usually the existing convention covered it).
@@ -294,8 +331,9 @@ Then the review lenses (their candidates go through refute-before-report before 
 ## Output format
 
 ```
-## /fix-bug — <one-line description>
+## /fix-bug — <one-line description>     Status: FIXED | NEEDS_INPUT (brief waiting) | NOT A BUG — <the rule>
 
+Brief:          approved by <person | the /task card> · questions <n asked, all answered>
 Symptom:        <description>
 Stack:          <detected from CLAUDE.md>
 Reproducer:     <steps>
@@ -322,6 +360,8 @@ Verification:
 Knowledge updates:
 - ai/failures/<file> — root cause documented
 - ai/dynamic/changelog.md — entry added
+- ai/features/<date>-<slug>/ — brief, study, design (cause + fix), acceptance
+- ai/business-rules.md + history — when the fix changed a rule
 - ADR <NNNN> (if applicable)
 
 Open follow-ups:

@@ -22,7 +22,7 @@ The shape this agent takes and returns — `.claude/templates/snippets/contract-
 role: judge
 inputs:
   required: [scope]             # one entity or feature, or "whole repo" under /audit-business; plus lifecycle-scan rows when the caller already ran it
-  reads:    [ai/business-rules.md, lifecycle-scan's coverage block and rows, $OUT/graph/{report.txt,edges.tsv,writes.tsv}, the transition table or FSM config, the setters and handlers the rows cite, ai/business-flows.md, ledger-scan §7 rows for money-moving edges]
+  reads:    [ai/business-rules.md, ai/business-rules-history.md, ai/business-flows.md, lifecycle-scan's coverage block and rows, $OUT/graph/{report.txt,edges.tsv,writes.tsv}, the transition table or FSM config, the setters and handlers the rows cite, ai/business-flows.md, ledger-scan §7 rows for money-moving edges]
   never:    [the builder's summary, PR text, commit messages, the detector's reasoning behind a row]
 output:
   returns:  the '## Output' block, ending in the transition matrix and the $-conserve register
@@ -37,7 +37,7 @@ next:       /business-fix (graded rows) · the owner named in § Routed (routed 
 
 ## The Premise (read first, do not deviate)
 
-**(0) This project's rules come first.** Before judging, read `ai/business-rules.md` (and `ai/business-rules-history.md` for how a rule got there). A behaviour a recorded rule asks for is the business's decision, not a finding, however a typical business of this kind would do it; when the code and the recorded rule disagree, report the disagreement and quote both. A diff that changes a rule and leaves both files untouched is an IMPORTANT finding (`.claude/templates/snippets/study-before-build.md` § 7).
+**(0) This project's rules come first.** Before judging, read `ai/business-rules.md` (and `ai/business-rules-history.md` for how a rule got there). A behaviour a recorded rule asks for is the business's decision, not a finding, however a typical business of this kind would do it; when the code and the recorded rule disagree, report the disagreement and quote both. A diff that changes a rule and leaves either file untouched is an IMPORTANT finding (`.claude/templates/snippets/study-before-build.md` § 8).
 
 **(a) The graph comes from the script, not from memory.** On a diff or a single entity, run `lifecycle-scan` through the Skill tool with `ROOTS` set to the server code (`ROOTS=(apps/api/src)`, never a bare `src` that is not there — the pack's old probes did exactly that, `rg` exited 2, and an empty graph read as clean). Under `/audit-business`, judge the rows the caller passes. A machine `status-graph.py` could not build (exit 2) is `UNREVIEWED(state-graph)`, never APPROVE.
 

@@ -1,6 +1,6 @@
 ---
 description: Execute a saved plan file produced by `<command> --plan` — implements its Steps + Outputs verbatim, honours its Constraints, runs its Verification, then auto-audits via /verify-plan. The execution half of the plan→file→execute handoff. Model-agnostic input; defaults executor sub-agents to Sonnet so an Opus planning pass (or opusplan plan mode) hands off cleanly to a cheaper executor.
-allowed-tools: [Read, Grep, Glob, Bash, Edit, Write, Task]
+allowed-tools: [Read, Grep, Glob, Bash, Edit, Write, Task, Skill]
 ---
 
 # /execute-plan
@@ -87,6 +87,7 @@ Re-running `/execute-plan` on a plan with already-`[x]` Outputs **resumes** — 
 - Run every command in `## Verification` (Bash). Any failure → surface stderr, mark the run **FAILED**, stop. Do NOT report success on a red verification.
 - **On any mid-run halt (here, a Constraint collision in Phase 4, or a stale-plan abort), report the partial state, never leave it silent:** which Outputs were committed (with shas), which are incomplete, and the exact revert path — `git revert`/`reset` over the Plan-ID commit range. Tick only the truly-complete Outputs in `## Status` so a later `/execute-plan` resumes cleanly (Phase 2 resume check) rather than redoing them.
 - **Confirm the `## Goal` acceptance criterion** — green Verification commands prove the mechanics ran; the acceptance criterion proves the *objective* was met. If the commands pass but the stated acceptance criterion is not observably true, the run is **not** done — say so, don't report success on "tests green" alone.
+- **A hand-back Step** (`/<command> --resume=<run-id>`, the last Step of an `/add-feature` or `/fix-bug` plan) is run with the Skill tool once every other Step and Verification passed. It produces the plan's record and rules Outputs. When the Skill tool cannot run it, print it as the run's `Next:` line: the plan is not complete until it has run.
 - Then auto-invoke **`/verify-plan <file>`** for the independent drift audit (Outputs / Constraints / Verification / staleness) and surface its verdict. Skip only with `--no-verify`.
 - **This command records the audit; the auditor does not.** `/verify-plan` is read-only — it prints its `## Verify run` entry and never edits the plan. Append that entry to the plan verbatim, and un-tick any `## Status` box it did not report `✓ matched`: a box ticked in Phase 5 that the independent audit could not match was a claim, not a fact.
 - The two are complementary: this command *did* the work and self-checks Verification; `/verify-plan` *independently* confirms the filesystem matches the contract and catches scope creep.

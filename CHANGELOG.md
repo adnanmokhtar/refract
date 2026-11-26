@@ -44,6 +44,32 @@ written nowhere. The fix runs through every command on the way from an idea to c
   - file the stories on Trello, ClickUp, Jira, Linear or GitHub with `--to-board`.
 - **`/audit --assess`** adds three sections to one whole-project report: business rules and flows,
   tests, and screens.
+- **An independent review walked six real scenarios through these files and found 35 gaps. All are
+  closed:**
+  - **The drain:** it takes each card once and counts only built cards toward `--max`. An approved
+    brief is the consent for H2 at T1 and T2. T3 parks the card at its gate.
+  - **The handoff:** the approved brief, its answers and the study reach the command that builds,
+    as `card=`, `brief=approved` and `record=`, with the files copied into the record folder.
+  - **Ordering:** the rules files are written only in the build's commit, never during refine.
+    Attachments, tests, ADRs and target-only rules are read inside the study, so their questions
+    join the one list.
+  - **Answers and approval:** an answer counts as approval only when it adds no work. A Bug card
+    whose behaviour is a recorded rule asks "keep or change?" instead of being "fixed".
+  - **Old text removed:** `/fix-bug`'s "just fix it", `/add-feature`'s open-question rounds after
+    the brief, `/expand-task`'s low-confidence specs, and the always-loaded rule's "pick one"
+    interpretation.
+  - **`/task`'s own comments** end with `— /task`.
+  - **The feature record** has four files, with one named writer each.
+- **Six more review rounds, until nothing material was left:**
+  - **Parking a card mid-build:** the worktree is kept, and the WIP is pushed only to
+    `wip/<branch>`, so the card's branch and its PRs never carry it. `--resume=<run-id>` continues
+    on the same machine; another machine starts over from the card's own branch.
+  - **The board is the source of truth:** another machine rebuilds a brief from the card's `/task`
+    comments.
+  - **A comment that approves or answers** never makes a brief stale.
+  - **`--plan`** embeds the brief and study, and lists the record and rules files. It hands back to
+    `/add-feature --resume` or `/fix-bug --resume` for the phases an executor cannot run.
+    `/execute-plan` can now run that hand-back.
 - **`/suggest-features`** ranks this business's own goals, rules and repeated requests above the
   domain checklist.
 

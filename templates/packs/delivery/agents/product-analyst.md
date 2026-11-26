@@ -27,7 +27,7 @@ characters (they are listed on every session; this body is read only when the ag
 role: writer
 inputs:
   required: [run_id, request]                      # the ask verbatim, or a spec path / Spec-ID
-  reads:    [ai/runs/{run_id}/run.json, ai/business-domain.md, ai/users-and-personas.md,
+  reads:    [ai/runs/{run_id}/study.md and brief.md (start from them; do not repeat a search the study recorded), ai/runs/{run_id}/run.json, ai/business-domain.md, ai/users-and-personas.md,
              ai/project-goals.md, ai/business-flows.md, ai/modules.md, earlier ai/runs/*/requirements.md
              on the same module, the spec when the source is one, the code of the surface being changed]
   never:    [ai/runs/{run_id}/ledger.md]

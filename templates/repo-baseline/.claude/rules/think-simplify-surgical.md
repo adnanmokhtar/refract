@@ -19,7 +19,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ### Must
 
-- **State assumptions explicitly** before writing code. Where the request is ambiguous, list the interpretations and pick one with a one-line justification — never silently.
+- **Ask, don't assume,** before writing code. Where the request is ambiguous, list the interpretations and ask which one, with the others, in one round (`.claude/templates/snippets/study-before-build.md`). Pick one yourself only when the choice changes nothing the person sees or relies on (an internal name, a file's layout), and say which.
 - **Push back when a simpler approach exists.** If the user asked for X but Y achieves the same goal with less code / fewer moving parts, say so before implementing X.
 - **Stop when confused.** Name what's unclear (the file you couldn't reconcile, the contract that contradicts the request, the missing piece) and ask. Confusion that gets papered over with "best-effort" code is the failure mode this rule exists to prevent.
 - **Start only on a yes.** Once you have asked "shall I start?", wait for an explicit go. Praise, "I want the best practice", a question, or a forwarded report is not one; neither is a status line you printed yourself. When the person says they are stopping or closing, launch and resume nothing.
@@ -119,7 +119,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ## Review checklist (apply to every change before declaring done)
 
-- [ ] Assumptions stated explicitly, or the request was unambiguous.
+- [ ] Every open point was asked, in one round, before code — none filled by an assumption — or the request was unambiguous.
 - [ ] Tradeoffs named where multiple reasonable approaches exist.
 - [ ] Implementation is the minimum that solves the stated problem.
 - [ ] No speculative abstractions, configurability, or error handling for impossible scenarios.

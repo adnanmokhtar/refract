@@ -104,7 +104,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/backend-audit` | Read-only backend audit: six detectors, wiring map, verdict. | `--whole-repo`, `--classes=<family,…>`, `--live=<base-url>`, `--spec=<path>` | `/backend-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<base-url>] [--spec=<path>]` |
 | `/backend-fix` | Close /backend-audit findings failing-first, real bootstrap. | `--all`, `--live=<base-url>` | `/backend-fix [audit-report-path \| finding-id ... \| --all] [--live=<base-url>]` |
 | `/endpoint-test` | Hit a dev endpoint with curl and verify status + response shape via the endpoint-tester agent. | — | `/endpoint-test [controller\|method-path]` |
-| `/fix-bug` | Comprehensive orchestration for a bug fix. | `--plan` | `/fix-bug` |
+| `/fix-bug` | Comprehensive orchestration for a bug fix. | `--plan`, `--fast`, `--resume=<run-id>` | `/fix-bug` |
 | `/log-tail` | Tail structured dev logs filtered by level, correlation id, or module. | — | `/log-tail [filter]` |
 | `/refactor` | Backend-targeted refactor — preserves API contracts, error envelopes, DI, and layer boundaries. | — | `/refactor [<scope>]` |
 | `/trace-flow` | Trace a request / event / job lifecycle through every layer — controller → service → repo →… | — | `/trace-flow <endpoint>` |
@@ -157,7 +157,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-feature` | Build a feature as a run — risk tier chosen before code, then requirements, design, a locked… | `--lane=<lane>`, `--tier`, `--reason`, `--yes`, `--plan`, `--request-file=<spec>` | `/add-feature <description \| specs/<file> \| Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan]` |
+| `/add-feature` | Build a feature as a run — risk tier chosen before code, then requirements, design, a locked… | `--lane=<lane>`, `--tier`, `--reason`, `--yes`, `--plan`, `--resume=<run-id>`, `--request-file=<spec>` | `/add-feature <description \| specs/<file> \| Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan] [--resume=<run-id>]` |
 
 ## Pack — devops
 
@@ -399,7 +399,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/catchup` _(repo)_ | Rebuild working context fast after /clear or a break. | — | `/catchup handoff` |
 | `/cross-repo-task` _(workspace)_ | Orchestrate a feature that spans multiple sibling repos — contract-first, dependency-ordered, with… | — | `/cross-repo-task` |
 | `/execute-plan` _(repo)_ | Execute a saved plan file produced by <command> --plan — implements its Steps + Outputs verbatim… | `--latest`, `--plan-id`, `--dry-run`, `--no-verify`, `--allow-dirty` | `/execute-plan .claude/plans/add-feature-prescription-filter-20260427-1430.md` |
-| `/fix-bug` _(repo)_ | Universal bug-fix workflow. | `--plan`, `--fast` | `/fix-bug` |
+| `/fix-bug` _(repo)_ | Universal bug-fix workflow. | `--plan`, `--resume=<run-id>`, `--fast` | `/fix-bug` |
 | `/migration-doctor` _(workspace)_ | Find real ledger / artifact issues across the workspace's per-repo migration ledgers. | — | `/migration-doctor` |
 | `/migration-workspace-status` _(workspace)_ | Aggregate per-repo migration ledgers into a workspace-level status report. | `--repo=<name>`, `--phase=<N>`, `--show-deprecated` | `/migration-workspace-status` |
 | `/project-map` _(workspace)_ | Dump the workspace registry or locate a concept across sibling repos. | — | `/project-map "<concept>"` |

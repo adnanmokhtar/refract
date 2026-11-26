@@ -24,7 +24,7 @@ Build command for the spec layer (not code yet). Two-pass: business spec → con
 4. Use the team's own vocabulary — if specs say "tenant" never write "workspace"; if specs say "owner-confirmed" never write "stakeholder-validated."
 
 **The agent does NOT:**
-- Invent sections that no sibling spec has (e.g., "Strategic alignment", "Vision statement"). If no sibling has it, the new spec doesn't either.
+- Invent sections that no sibling spec has (e.g., "Strategic alignment", "Vision statement"). If no sibling has it, the new spec doesn't either. Two sections are required whatever the siblings have, because the study produces them: **`Brief`** (at the top) and **`What exists today`**.
 - Drop required sections because the brief is short. `Out of scope` empty = scope creep guaranteed; force the section non-empty.
 - Skip the confirmation gate between 4a and 4b. The whole point of this command is the clarification round. **Exception:** when decisions are supplied up front via `--decisions` (e.g. a prior Plan Mode plan), the round is already complete — fold the answers into `Resolved decisions` and emit 4a+4b in one pass. Skipping the gate is legal ONLY when there are no open questions left to ask, never to save time.
 - Tag every criterion `MVP`. That's broken scope discipline; force a real MVP/v2 split.
@@ -39,7 +39,7 @@ Before dispatching `business-analyst`, the agent MUST:
 - Confirm the new spec will use that exact section list, in that order.
 - If no sibling specs exist, use the business pack's spec shape (the 4a list below, then 4b), and say so in one line at the top of the spec: `Shape: business-pack default (no sibling specs)`. Never halt for it: a project without `specs/` still needs its first spec.
 
-Section renaming or section invention without a sibling precedent is rejected; the spec is regenerated mirroring siblings.
+Section renaming or section invention without a sibling precedent is rejected; the spec is regenerated mirroring siblings. `Brief` and `What exists today` are the two exceptions, and are always present.
 
 ## When to use / NOT to use
 - USE: owner / stakeholder gave a one-liner that needs unpacking before code.
@@ -49,7 +49,7 @@ Section renaming or section invention without a sibling precedent is rejected; t
 
 ## Phase 1 — Understand
 - Take rough input as quoted string argument.
-- Confirm: is this a real ambiguous brief, or already specified elsewhere? Search `specs/` first, then the board: an open card with the same item (`/task`'s provider, read-only) means the spec extends that card instead of starting a second one.
+- Confirm: is this a real ambiguous brief, or already specified elsewhere? Search `specs/` first, then the board: an open card with the same item (`/task`'s provider, read-only) is named in the spec, and `--to-board` asks whether to add the spec to that card (a comment linking it) or to file a new one.
 
 ## Phase 2 — Organize
 - Decide the two passes:
@@ -81,7 +81,7 @@ Spec-specific — **study what exists before writing a single story**
 ## Phase 4 — Generate (two passes with confirmation gate)
 
 **4a — Business spec (then PAUSE):**
-- Dispatch `business-analyst` with input + `ai/business-domain.md` + recent ADRs.
+- Dispatch `business-analyst` with input + the Phase 3 study (`What exists today`, its paths and questions) + `ai/business-rules.md` + `ai/business-domain.md` + recent ADRs. It writes from the study; it does not search again.
   - **Missing-agent fallback:** if `business-analyst` is not installed in this project, produce the 4a business spec inline against the business-pack spec checklist (problem / stories / G+W+T AC / out-of-scope / open questions) — never skip the structured pass. Note `inline:business-analyst` in the consolidation note.
 - Agent produces:
   - Problem statement (one sentence).
@@ -90,7 +90,7 @@ Spec-specific — **study what exists before writing a single story**
   - Out of scope (explicit non-goals).
   - Open questions — every gap the study found, each with its options and what each changes. All of them now, in one list: a question found after the build costs a rebuild.
   - **The brief** (`study-before-build.md` § 6) at the top: problem, what we will do, steps, what will not change, where, how to test — in the person's language.
-- **INSUFFICIENT-BRIEF halt:** if open questions outnumber drafted user stories, OR any core dimension (who / what / why / success-metric) is unanswerable from the brief → HALT with status `INSUFFICIENT BRIEF`. Surface the gaps; do NOT draft stories on guesses to satisfy a non-empty check.
+- **INSUFFICIENT-BRIEF halt:** when a core dimension (who / what / why / success-metric) is unanswerable from the brief → save the draft first (below), then HALT with status `INSUFFICIENT BRIEF`, the questions listed, so `--resume` has a file to resume. The number of questions alone never halts: the study's scope questions ("also in A, B, C?") are expected.
 - Save draft to `specs/<YYYYMMDD>-<slug>.md`, with a `Spec-ID:` header as the first line (Plan-ID style): `Spec-ID: <slug>-<4char-hash>` — a short hash of `(slug + timestamp + project-name)`, stable for the file, cited later by `/add-feature`, PRs, and commits.
 - Print draft + open questions. **STOP. Wait for user to confirm or amend.**
 
@@ -134,15 +134,6 @@ Spec-ID: <slug>-<4char-hash>
 
 ## Phase 5 — Update
 - `specs/<YYYYMMDD>-<slug>.md` — created (and appended after gate).
-- **`--to-board`** (after the gate, or in the one pass under `--decisions`) — file the stories on
-  the project's board through `/task`'s § *Add mode* steps 3–7:
-  - one card per story, or per epic part when Phase 6 split it;
-  - the brief and the story's `Given/When/Then` as its `## Acceptance Criteria` section;
-  - the board's own labels, and `After: <card>` for dependencies;
-  - `Source: specs/<file>` and the `Spec-ID`.
-
-  Duplicates already on the board are skipped. The cards land in `addTo`, never a pick list, with
-  one confirmation first. Without `--to-board`, the run ends by offering it.
 - `ai/dynamic/changelog.md` — one-line: `spec drafted: <slug>`.
 - `ai/status.md` — `## Recent Changes` bullet if spec is non-trivial.
 
@@ -155,17 +146,43 @@ Each check below is the mechanical execution of one Hard rule (stated once, belo
 | 1 | Every AC-ID appears in exactly one test-plan row AND ≥1 affected module; every affected module appears in ≥1 AC row | **HALT** — traceability open (an orphan AC does not constrain the build; a module with no AC was fabricated) |
 | 2 | Grep every `Then` clause for `works` / `good` / `fast` / `properly` / `gracefully` with no adjacent number or observable | **HALT** — vague AC; rewrite with a threshold or move to `Open questions` |
 | 3 | Every story that takes input, mutates state, or calls out has ≥1 negative-path AC | **HALT** — error-path floor unmet (unless the story is declared read-only with no failure modes) |
-| 4 | Count open questions vs drafted stories; check who / what / why / success-metric each answerable | **HALT** — `INSUFFICIENT BRIEF`; do not ship a guessed spec as complete |
+| 4 | Check who / what / why / success-metric each answerable from the brief (the number of open questions alone never halts) | **HALT** — save the draft, then `INSUFFICIENT BRIEF` with its questions; do not ship a guessed spec as complete |
 | 5 | Exactly one section holds confirmed answers, named `Resolved decisions`; no answered question still phrased as open | re-fold and re-emit (a second answers section is sibling-shape drift) |
 | 6 | Every criterion carries `MVP` or `v2`; `Out of scope` non-empty | re-emit with a real split / a real boundary |
 | 7 | Story count ≤ ~5-7, one bounded context, no independently-shippable halves mixed | flag `EPIC: consider splitting` into `<slug>-1` / `<slug>-2` with a dependency note |
 | 8 | Cross-check against active ADRs in `ai/decisions/` | surface the conflict in the spec; never quietly redesign around it |
 
 ## Phase 7 — Improve
-- **Handoff (single next command):** with `--to-board`, `Next: /task refine` (the cards are studied already; refine checks them against the batch). Without it, `Next: /add-feature specs/<YYYYMMDD>-<slug>.md` — cite the `Spec-ID`. Add `--plan` to plan the feature and exit before any edit (`/add-feature specs/<…>.md --plan`). Mirror `/expand-task`'s one-next-command discipline; do not list a menu of follow-ups.
+- **`--to-board`** — only after Phase 6 passed and with **no open question left**: a spec with
+  open questions is not filed; the run ends with the questions instead. It files the stories on
+  the project's board through `/task`'s § *Add mode* steps 3–7:
+  - one card per story, or per epic part when Phase 6 split it;
+  - the brief and the story's `Given/When/Then` as its `## Acceptance Criteria` section;
+  - the board's own labels, and `After: <card>` for dependencies;
+  - `Source: specs/<file>` and the `Spec-ID`.
+
+  Duplicates already on the board are skipped. The cards land in `addTo`, never a pick list, with
+  one confirmation first. That confirmation shows each card's own brief in three lines, and the
+  ✓ below is posted only after the person's OK on it.
+
+  **Each card gets its own brief.** Its own `We will`, `Steps`, `Where` and `Test it`, scoped to
+  its story, with a link back to the spec. The spec's whole-idea brief is never copied onto every
+  card, because cards built against the whole idea overlap.
+
+  Each card also gets three `/task` comments:
+  - the Plan comment (its brief);
+  - an Answer comment, when the spec's resolved decisions touch it;
+  - the ✓ comment, after the OK on the confirmation: `✓ الخطة متوافق عليها — <who>, <date>`.
+
+  The board is the source of truth, so any machine rebuilds the brief from these (§ 0). Locally,
+  after § 0's `git check-ignore` line, it also writes `ops-local/refine/<card-key>/brief.md`
+  (status `approved`) and `study.md` (the part of `What exists today` this story touches). The
+  origin list is left empty: `/task` records it when it first takes the card from a pick list.
+  Without `--to-board`, the run ends by offering it.
+- **Handoff (single next command):** with `--to-board`, `Next: a person moves the cards from addTo to a pick list, then /task next --drain` (each card's brief is already approved). Without it, `Next: /add-feature specs/<YYYYMMDD>-<slug>.md` — cite the `Spec-ID`. Add `--plan` to plan the feature and exit before any edit (`/add-feature specs/<…>.md --plan`). Mirror `/expand-task`'s one-next-command discipline; do not list a menu of follow-ups.
 - `/learn-from-task` — capture clarification patterns (which ambiguities recur).
 - If 3+ specs share a theme → queue ADR proposal: domain primitive (e.g. "every export needs async + permission gate").
-- Open questions left unresolved → append to `ai/dynamic/decisions-pending.md`.
+- Open questions left unresolved → append to `ai/dynamic/decisions-pending.md`; the spec stays `AWAITING CONFIRMATION` and is not filed to the board.
 
 ## Output format
 ```
@@ -208,7 +225,7 @@ These are the ways a spec passes every check and is still wrong — the ones the
 - **ADR-aware.** Spec that conflicts with an active ADR halts; surface the conflict, don't redesign around it.
 - **One spec at a time.** Don't expand a brief that already has a spec — point at the existing spec.
 - **Traceability is mandatory.** Every AC maps to exactly one test-plan item + ≥1 module; every module traces to ≥1 AC. No orphan ACs, no fabricated modules.
-- **Insufficient brief halts.** If the brief can't answer who / what / why / success-metric, or open questions outnumber stories, ship `INSUFFICIENT BRIEF` — never guess to fill the spec.
+- **Insufficient brief halts.** If the brief can't answer who / what / why / success-metric, save the draft and ship `INSUFFICIENT BRIEF` with its questions — never guess to fill the spec.
 - **Observable ACs only.** Every `Then` asserts a measurable outcome; mutation / external-call stories carry ≥1 negative-path AC.
 - **Stable Spec-ID.** Each spec gets a `Spec-ID` at creation; it never changes (including across `--resume`) and is cited by `/add-feature`, PRs, and commits.
 - **Epic discipline.** Specs over ~5-7 stories or >1 bounded context split into sibling specs with a dependency note — never one oversized spec.

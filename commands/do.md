@@ -326,6 +326,7 @@ If one half matches no command, run the half that does and report the other as u
 - **Never dispatch a level-D command.** Route to it, print it, stop — `disable-model-invocation: true` means a human types it (§ Level D). In a multi-ask, a D half is printed while the other half runs only if it does not depend on the D half.
 - **Resolve variants before dispatch.** A name listed in `.claude/_command-variants.md` goes to the variant for the ask's stack, never to whichever pack installed first (§ Variants).
 - **Forward verbatim — never paraphrase.** The routed command receives the user's own words, not a re-worded version. On a single-command route that is the full original description. On a multi-ask (§ Multi-command asks) each command receives its **own clause, still verbatim** — splitting the sentence at the boundary between two asks is not paraphrasing; rewriting either half is.
+- **Forward `/task`'s fields unchanged.** A dispatch from `/task` carries `card=`, `brief=approved`, `record=`, `drain=` and `--resume=` alongside the description, which opens with the approved brief. Pass all of them to the routed command as they came. A routed command that does not read them still gets the brief at the top of its description, and `/task` writes the record files it does not write.
 - **Log every dispatch.** The audit trail in `ai/_history.md` lets the user see what got routed where.
 
 ## Failure modes

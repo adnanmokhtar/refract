@@ -7,11 +7,12 @@ and it outranks a general idea of how this kind of business usually works.
 
 Last updated: <YYYY-MM-DD>
 
-> **How this file stays true** (`.claude/templates/snippets/study-before-build.md` § 7):
+> **How this file stays true** (`.claude/templates/snippets/study-before-build.md` § 8):
 > - A task that adds, changes or removes a rule edits that rule **here, in place**, in the same
 >   change, and appends one line to `ai/business-rules-history.md`.
 > - The old wording never stays beside the new one. The history file keeps the past.
-> - An area nobody has written yet is filled the first time a task touches it, read from the code.
+> - An area nobody has written yet is filled the first time a task touches it, read from the code,
+>   in that task's commit (logged as `recorded from code`).
 > - Each rule cites where it is enforced (`file:line`). When nothing in the code enforces it, the
 >   line says so: `not enforced`.
 

@@ -5,11 +5,13 @@ pack: delivery
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task, Skill]
 ---
 
-# /add-feature <description | specs/<file> | Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan]
+# /add-feature <description | specs/<file> | Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan] [--resume=<run-id>]
 
 > **`--plan`**: honours the universal handoff flag — [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md).
-> The run stops after P5 with the contract locked and `plan.md` written; `/execute-plan ai/runs/<run-id>/plan.md`
-> resumes it at P6. When planning from a spec the plan carries `Spec: <Spec-ID>`.
+> The run stops after P5 with the contract locked and `plan.md` written. The plan carries a Plan ID, embeds the
+> approved brief and the study's notes, and lists the feature record (and the rules files, when the brief changes a
+> rule) in its Outputs. `/execute-plan ai/runs/<run-id>/plan.md` builds P6 from it. Its last Step runs
+> `/add-feature --resume=<run-id>`, which runs P7–P12: tests, reviews, the verdict, the record and the rules check. When planning from a spec the plan carries `Spec: <Spec-ID>`.
 
 ## The Premise (read first, do not deviate)
 
@@ -88,35 +90,57 @@ input paths, the mode or lens, the return shape — never your narrative, never 
    allowed; lower only here, with `--reason` (written to `forced_lower`; CI re-tiers from the diff).
    No signal at all reads T1; decision O3 still makes a feature with a write path or a UI surface T2
    as soon as the design or the diff shows one.
-4. **T0 → no run.** Docs, copy, a typo, config with no runtime effect: make the edit, run
+4. **T0 → no run.** Docs, a typo in a comment, config with no runtime effect: make the edit, run
    `python3 .claude/scripts/gate-check.py --local`, add one line to `ai/status.md`
    (`<date> — <what> (T0, no run)`), output, stop. If the edit turns out to touch runtime behaviour,
    it is not T0: open a run at T1 and continue.
-5. **Open the run (T1+).** Run id `<YYYYMMDD>-<slug>-<4hex>` (run-ledger § 1). Create
+5. **Open the run (T1+)** — or, with `--resume=<run-id>` (from `/task`, or from a plan's last Step),
+   do not: continue that run in its worktree at the phase after the one `run.json` stopped at.
+   After `/execute-plan`, the plan's last Step set `phase: P6 done`, so the run continues at P7. If
+   the plan's re-tier promoted the tier, it continues instead at the first phase the promotion
+   re-opened, as `run.json` records it, and back-fills it before P7.
+   The run folder lives only in that worktree. When it is not there, as on another machine, the
+   run cannot resume. It starts over at P0 in the worktree `/task` cut, from the card's remote
+   branch, or from `branchFrom` when it has none. The WIP code lives only on `wip/<branch>`, never
+   on that branch:
+   - the brief's approval stands;
+   - gate approvals are asked again, since the files they covered are written again;
+   - the WIP code is not reused, so the contract is red and locked before any production line.
+
+   **New run:** Run id `<YYYYMMDD>-<slug>-<4hex>` (run-ledger § 1). Create
    `ai/runs/<run-id>/`, write `ai/runs/.gitignore` (`*/evidence/raw/`) if absent, `run.json`
    (`status: open`, `phase: P0`, the tier and its reasons, the lanes, every phase the tier skips in
    `skips[]` with what covers it — `.claude/schemas/run.schema.json`; validate with
    `python3 .claude/scripts/refract_records.py validate run ai/runs/<run-id>/run.json`) and
    `ledger.md` (run-ledger § 4). Mark P0 `done`.
-6. **Study and brief — before P1, every tier from T1.** Run
-   [`study-before-build.md`](../../../snippets/study-before-build.md):
-   - the business rules of the area;
-   - what exists, and the precedent to follow;
-   - every place the change applies;
-   - existing data or new only;
-   - conflicts with today's rules.
+6. **Study and brief — before P1, every tier from T1.**
+   - **Run by `/task`** (`brief=approved`, `record=<folder>`): the brief, its answers and the study
+     are in the record folder. Copy `brief.md` and `study.md` into `ai/runs/<run-id>/` so every
+     phase reads them from one place; do not study or ask again.
+   - **Run directly:** run [`study-before-build.md`](../../../snippets/study-before-build.md)
+     § 0–7, covering the rules of the area, what exists and the precedent, every place the change
+     applies, existing data, and conflicts. Write `ai/runs/<run-id>/brief.md` and `study.md`.
+     Then print the brief and wait for the person's OK on it, per the snippet's § 7: an answer
+     counts as approval only when it adds no work.
 
-   Write the brief to `ai/runs/<run-id>/brief.md` and the study's notes to `ai/runs/<run-id>/study.md`
-   (§ 10). Under `/task`, copy the card's study from `ops-local/refine/<card-key>.md` when it is current
-   instead of studying again. Every later phase gets `study.md` in its brief, and P1–P5 read it
-   first: the search it recorded is not run again.
-   - **Run by a person directly:** print the brief and wait for the OK or the answers before P1.
-     This is the plain-language half of H2, and at T1 it is the only human gate.
-   - **Run by `/task` with an approved brief:** the card's brief is the brief, with no second wait.
-   - **`--yes`:** skips the wait only when the brief has no open question.
+   Every later phase gets `study.md` and `brief.md` in its dispatch. P1–P5 start from them: a
+   search the study recorded is not run again.
 
-   An open question is never answered by an assumption. It stays open until the person answers,
-   and the run is `NEEDS_INPUT`.
+   **Gates.**
+   - **T1:** the approved brief is the only gate before code. H4, the merge, stays human.
+   - **T2:** H2's plain half is the brief. Under `/task` or `--yes`, `@plan-critic` takes H2's
+     technical half.
+   - **T3:** H1 and H2 stay human. Run directly, it waits for them in the session. Under `/task`,
+     the person is asked in the session first. Otherwise, as in a drain, the run stops at the gate
+     and `/task` parks the card (its § *Parking*): the worktree, with this run folder, is kept; the
+     WIP code is pushed without `ai/runs/`. When the person approves, the gate is recorded in
+     `run.json` and `brief.md`, and `/task` dispatches `--resume=<run-id>`. The run continues at
+     the phase after the gate.
+   - **`--yes`** skips the brief's wait only when the brief has no open question.
+
+   **No open question is ever answered by an assumption.** A question that appears after the
+   brief, in any phase, stops the run with `NEEDS_INPUT` and goes back to the person. Under
+   `/task`, the card stops and waits.
 
 **Phases by tier** (`tiers.json`; ✓ runs, L = lite, – skipped with `covered_by: tier T<n>`):
 
@@ -128,7 +152,7 @@ input paths, the mode or lens, the return shape — never your narrative, never 
 
 ## P1 — Requirement
 
-- **T2/T3:** dispatch `@product-analyst` — `run_id`, `request` (or the spec path), `return: DONE |
+- **T2/T3:** dispatch `@product-analyst` — `run_id`, `request` (or the spec path), `study.md` and `brief.md`, `return: DONE |
   NEEDS_INPUT | BLOCKED`. It writes `requirements.md` (EARS, REQ-/AC- ids, an `IF … THEN` per
   story, unchanged behaviour, success + counter-metric, open questions as options).
 - **T1 (lite):** you write `requirements.md` yourself — ≤5 EARS criteria, each story with an
@@ -137,16 +161,15 @@ input paths, the mode or lens, the return shape — never your narrative, never 
 - Dispatch `@requirements-reviewer` (run mode, lens `requirements`); read
   `reviews/requirements-reviewer-requirements.json`. IMPORTANT findings go back to the writer;
   round 2 admits IMPORTANT only; a third round escalates to the human (`posting-bar.md`).
-- **Exit:** ears-lint green · no IMPORTANT finding standing · no open question that changes the
-  design (ask the human now — a question with options, not a verdict). A new T3 signal in the
+- **Exit:** ears-lint green · no IMPORTANT finding standing · **no open question at all**. A question the brief did not settle → `NEEDS_INPUT`: ask the person now, with options, and wait. It is never carried into design. A new T3 signal in the
   requirements → `risk-tier.py --run=<id> --request-file=ai/runs/<id>/requirements.md --write`.
 
 ## P2 — Analysis (T2, T3)
 
 Dispatch `@product-analyst` again for `## Impact`, starting from `study.md`, whose precedent, places and existing data are the prior-art search already done (prior-art search beyond it, affected modules — from
 `build-graph.py --who-breaks` when the graph exists —, NFR → QA refs) and the draft
-`quality-attributes.md`. A near-duplicate capability is `NEEDS_INPUT`: extend, replace, or a
-deliberate parallel. Then `python3 .claude/scripts/trace-matrix.py <run-id> --phase=analysis` and
+`quality-attributes.md`. A near-duplicate capability the study's precedent did not already settle is `NEEDS_INPUT`: extend, replace, or a
+deliberate parallel — asked, then waited on. Then `python3 .claude/scripts/trace-matrix.py <run-id> --phase=analysis` and
 `@plan-critic` (`phase: P2`).
 **H1 (T3):** show the human `requirements.md` and `quality-attributes.md`; on approval append
 `approvals[]` `{gate: H1, by: human, artifacts: [{path, sha256}]}` (`shasum -a 256 <file>`).
@@ -217,14 +240,14 @@ per new primitive or dependency. Then:
    Baseline:     <n> entries captured @<base-sha>; <d> declared changes     .claude/baselines/<base-sha>/
    Plan:         <tasks by lane>                                           plan.md
    Critic:       <plan-critic's top findings, or none>                     reviews/plan-critic-plan.json
-   Open:         <anything still undecided — each with its options>
+   Open:         none — a run reaches H2 only with every question answered (P1 exit)
    ```
 
    On approval: `approvals[]` `{gate: H2, by: human, artifacts: [requirements.md, design.md,
    acceptance.json, plan.md with sha256]}`, then `.claude/scripts/lock-acceptance.sh <run-id>`.
-   **T1, and `--yes` at T2:** `@plan-critic` stands in — PASS (no IMPORTANT finding) is recorded as
-   `{gate: H2, by: plan-critic}`. `--yes` never stands in for H2 at T3, nor for H1, H3 or H4.
-7. Building against an unlocked contract, or before the baseline is captured, is not allowed. `--plan` stops here.
+   **T1, `--yes` at T2, and `/task` (`brief=approved`) at T2:** `@plan-critic` stands in — PASS (no IMPORTANT finding) is recorded as
+   `{gate: H2, by: plan-critic}`; the person's approved brief is the consent. Nothing stands in for H2 at T3, nor for H1, H3 or H4.
+7. Building against an unlocked contract, or before the baseline is captured, is not allowed. `--plan` stops here, after the brief (P0 step 6) was approved: the plan file carries it and lists `brief.md` and `study.md` (`plan-flag.md`).
 
 ## P6 — Implementation (one writer at a time)
 
@@ -245,7 +268,7 @@ per new primitive or dependency. Then:
 - **T1:** you may build directly, following the lane skill's Phase 3–4.
 - Returns: `DONE` → next task; `SPEC_CONFLICT` → stop, end the run **BLOCKED**, show the human the
   criterion, the requirement and the evidence (only a human reopens the lock);
-  `NEEDS_INPUT` → ask; a red criterion after `THR-LOOP.fix_loops_max` fix loops → INCOMPLETE.
+  `NEEDS_INPUT` → stop the run and ask the person. Under `/task`, when no answer comes in the session, `/task` parks the card the same way as at a T3 gate, and the run resumes from `run.json` in its kept worktree (`--resume=<run-id>`) once the answer is in. A red criterion after `THR-LOOP.fix_loops_max` fix loops → INCOMPLETE.
 - After the last task: `python3 .claude/scripts/risk-tier.py --run=<id> --diff --write`. A promotion
   back-fills the phases it re-opened before P7.
 - **P6b docs:** the lane skill's Phase 5 Update, by `@doc-writer` *(documentation pack)* — the
@@ -273,7 +296,7 @@ security → business → performance → code → observability). Each gets a b
 | `@code-reviewer` — correctness, conventions, contracts | ✓ | ✓ | ✓ |
 | `@architecture-reviewer` mode `conformance` | – | ✓ | ✓ |
 | security: `@security-auditor` (+ `auth-reviewer`, `tenant-isolation-reviewer`, `data-privacy-reviewer`, `api-security-reviewer` when their trigger fired) | floor only | ✓ | ✓ + `/security-audit` scoped to the diff |
-| business, each when its signal fired: `@workflow-integrity` — the diff writes a status (an edge nobody guards, a state nobody leaves, two aggregates that can disagree); `@domain-model-auditor` — it moves money, stock or a balance (the invariant and where it is enforced); `@business-auditor` — it adds or changes a forward action that has an inverse (cancel, refund, resend). Each reads `ai/business-rules.md` and `ai/business-flows.md` first — a rule written there is the business's decision, not a finding — reports a changed rule whose two rules files the diff leaves untouched, and finds its diff signal in its own § Dispatch | – | ✓ | ✓ |
+| business, each when its signal fired: `@workflow-integrity` — the diff writes a status (an edge nobody guards, a state nobody leaves, two aggregates that can disagree); `@domain-model-auditor` — it moves money, stock or a balance (the invariant and where it is enforced); `@business-auditor` — it adds or changes a forward action that has an inverse (cancel, refund, resend). Each reads `ai/business-rules.md` and `ai/business-flows.md` first — a rule written there is the business's decision, not a finding — reports a changed rule whose diff leaves either rules file untouched, and finds its diff signal in its own § Dispatch | – | ✓ | ✓ |
 | `@performance-optimizer` — N+1, unbounded queries, budgets in `ai/runtime/perf-budgets.md` | – | ✓ when a hot path or bundle is touched | ✓ |
 | `@schema-reviewer` — migrations, constraints | – | ✓ on a schema change | ✓ |
 | `@observability-reviewer` — instrumentation parity, `release.md` | – | ✓ | ✓ |
@@ -304,17 +327,18 @@ cap at `THR-LOOP.review_rounds_max`; a fix re-runs only the lens that found it.
 | missing or STALE | not judged — re-dispatch; never COMPLETE |
 
 4. **Business rules.** When the brief says a rule changes, the diff updates `ai/business-rules.md`
-   in place and appends to `ai/business-rules-history.md` (`study-before-build.md` § 7). A
-   changed rule with neither file touched is INCOMPLETE.
+   in place and appends to `ai/business-rules-history.md` (`study-before-build.md` § 8). A changed rule that leaves
+   either file untouched is INCOMPLETE.
 5. **The feature record is committed in the project** (`study-before-build.md` § 9), in the same
-   change, as `ai/features/<YYYY-MM-DD>-<slug>/`:
-   - `brief.md` — the approved brief, with its questions and answers;
-   - `design.md` — from `design.md` and `ux.md`: components, API endpoints, data changes and
-     screens, and why this shape;
+   change, as `ai/features/<YYYY-MM-DD>-<slug>/`. Under `/task` the folder is `record=`, with
+   `brief.md` and `study.md` already in it, and `/task` writes the index line. A direct run copies
+   both from `ai/runs/<run-id>/` and writes the index line itself. This command writes:
+   - `design.md` — from `design.md` and `ux.md` at T2/T3, from `plan.md` at T1: components, API
+     endpoints, data changes and screens, and why this shape;
    - `acceptance.md` — the acceptance criteria.
 
-   Add one line to `ai/features/_index.md`. The PR body links the folder. The run folder lives in
-   the worktree and goes with it; the record stays.
+   The PR body links the folder. The run folder lives in the worktree and goes with it; the
+   record stays.
 
 **H4:** a human merges. P13 deploy is `/deploy-stage` (level D — the human types it, H3).
 
