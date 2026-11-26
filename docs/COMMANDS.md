@@ -326,6 +326,8 @@ Use when you don't remember the exact command. If you want a prompt artifact to 
 
 **Add mode:** `/task add <source>` turns a plan, spec, audit report or `/walk-scenarios` sheet into new cards — one per item, each with a `## Acceptance Criteria` section, the board's own labels and a source line, duplicates skipped — in `task-flow.json`'s `addTo` list, never a pick list. One confirmation; `--yes` skips it.
 
+**Status mode:** `/task status [--since=7d]` reads the board, the PRs, CI and the deploys for the window — cards moved and stuck, PRs merged and failing, red branches, deploys and reverts — computes lead time, deploy count, change failure and time to restore from those records (never estimated), and ranks the risks. Read-only; written to `ops-local/status/<date>.md`.
+
 See [`commands/task.md`](../commands/task.md).
 
 ---

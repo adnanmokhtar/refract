@@ -3,11 +3,11 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.6.0
+version: 1.7.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /task <ref> | add <source> [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only] [test word] [«من غير كومنت»]
+# /task <ref> | add <source> | status [--since=7d] [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only] [test word] [«من غير كومنت»]
 
 Pull ONE task from your project-management tool and do it. `<ref>` is a card/issue
 **URL**, a **key** (`PROJ-123`, `#42`, `trello:<id>`), or **`next`** (the top card of the
@@ -200,6 +200,41 @@ that list on the board. `add` does. It creates cards and does no code work, so t
 7. **Record.** In a source file this run may edit (under `ai/`), append ` → <card url>` to each item
    that became a card, so running it again skips them. Then append one line to `ai/_history.md`:
    `<iso> /task add <source> → <n> cards (<list>), <k> skipped as duplicates`.
+
+## Status mode (`status [--since=7d]`) — where the work stands
+
+A project manager's read of the week, from the board, the PRs, CI and the deploys. It is
+read-only: it moves no card, posts nothing and writes only its report.
+
+1. **Board.** Read every list in `task-flow.json`'s flow (pick lists, `start`, `review`, `addTo`,
+   and Done when it exists):
+   - the cards that moved in the window;
+   - the cards in `start` longer than the window, as **stuck**;
+   - the cards in `review` that the tester sent back (a `fixLists` card returning).
+2. **PRs.** `gh pr list --state all --search "updated:>=<since>"`:
+   - opened, merged and closed;
+   - open with a failing check, or not mergeable;
+   - open longer than the window with no review.
+3. **CI and deploys.** The last run on each `git.prTo` branch, red or green. The deploys in the
+   window, from the deploy ledger (`ai/runtime/deploys.md`) or the release tags, plus every revert
+   or hotfix commit on the release branch.
+4. **Delivery numbers**, each computed from the records above, never estimated:
+   - **lead time** — card start move to its PR merged into the release branch, the median of the
+     window;
+   - **deploys** — how many reached the release branch's environment;
+   - **change failure** — deploys followed by a revert or a hotfix, of all deploys;
+   - **time to restore** — a hotfix's merge minus the bad deploy's time, the median.
+
+   A number with no record behind it prints `not recorded`, never a guess.
+5. **Risks**, ranked:
+   - a stuck card on a money, stock, status or permission path;
+   - a red CI on a `prTo` branch;
+   - a PR that conflicts with its target;
+   - a card the tester returned twice.
+
+Print it in the language the person writes in, short enough to read in a minute. Write it to
+`ops-local/status/<YYYY-MM-DD>.md`. `ops-local/` is gitignored; add it to `.gitignore` the first
+time. Scheduled: `/schedule` → "every Sunday 09:00, run `/task status`".
 
 ## Phase 1 — Understand (resolve the task)
 1. **Resolve provider** from `<ref>`:
@@ -405,6 +440,11 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 /task add ai/scenarios/return-request.md
 → 2 BREAKS + 1 untested refund case → 3 cards [Bug ×2, Test ×1] for Backlog · 0 already on the board
   → confirmed → created → each sheet row gets " → <card url>" · ai/_history.md: 3 cards (Backlog)
+
+/task status
+→ last 7 days · 9 cards moved (4 to Testing, 2 returned) · 2 stuck in In Progress > 7d
+  → PRs: 6 merged, 3 open (1 failing check) · CI: staging green, main green · 2 deploys, 0 reverted
+  → lead time 3.5 days (median) · risks: the stuck refund card (money path), PR #61 conflicts with staging
 ```
 
 ## Flags
@@ -412,6 +452,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 |---|---|
 | `--drain` | With `next`: work the pick lists card by card until empty, a card halts, or `--max`. |
 | `add <source>` | Turn a plan, spec, audit report or scenario sheet into new cards in `addTo` (§ *Add mode*); no code work. `--yes` skips the one confirmation. |
+| `status [--since=7d]` | Where the work stands: board moves, stuck cards, PRs, CI, deploys, lead time and change failure from records, ranked risks (§ *Status mode*). Read-only. |
 | `--max=N` | Cap a drain at N cards (default 5). |
 | `--prompt-only` | Fetch + normalize, then **print a paste-ready prompt and stop** — no `/do`, no execution, no write-back. Hand-off mode. |
 | `--to=<command>` | Dispatch directly to `/<command>` instead of routing through `/do` (command must exist in this repo). |

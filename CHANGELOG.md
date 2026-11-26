@@ -6,6 +6,15 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/task` 1.7.0 — `status`: where the work stands (2026-11-26)
+
+`/task status [--since=7d]` is a project manager's read of the week. It covers the cards that
+moved and the cards stuck in progress, the PRs (merged, failing, conflicting, unreviewed), CI on
+each `prTo` branch, and the deploys with their reverts and hotfixes. It computes lead time, deploy
+count, change failure and time to restore from those records; a number with no record prints `not
+recorded`. It ranks the risks, with money, stock, status and permission paths first. It is
+read-only and written to `ops-local/status/<date>.md`.
+
 ### `/triage-errors` — the daily production read (2026-11-26)
 
 A new command in the observability pack, installed per project. It reads production errors for a
