@@ -6,6 +6,15 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/triage-errors` — the daily production read (2026-11-26)
+
+A new command in the observability pack, installed per project. It reads production errors for a
+window from the error tracker or the log backend, and groups them. It sorts each group as NEW,
+REGRESSED, RISING or KNOWN. For each group that is not known, it names the code line and the
+release that brought it, and files a redacted Bug card through `/task add`. It is read-only on
+production. The board is its memory: each card ends with a `Source:` line the next run searches
+for. It can be scheduled with `/schedule … /triage-errors --yes`.
+
 ### The weekly pulse keeps the audits fresh; `/merge-to` writes the tester list (2026-11-26)
 
 - **`/check-health` (code-quality 2.2.0)** reads three more audit reports beside quality and tests:

@@ -215,6 +215,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [premise, when_to_use, inputs, understand, lane, retrieve, generate, update, validate, output, halts, related]
   fallback: commands/add-slo.md   # the source IS the fallback; slo-audit stays the single writer of ai/runtime/slos.md
 
+- name: triage-errors
+  kind: command
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Observability (the error tracker or log backend and its env names) + the deploy ledger or release tags
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/triage-errors.md   # the source IS the fallback: read-only on the tracker, redaction, and the Source: line that makes the board the memory are the contract
+
 - name: investigate-incident
   kind: command
   triggers: { always: true }

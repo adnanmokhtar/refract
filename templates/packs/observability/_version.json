@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "observability",
-  "version": "2.0.4",
-  "released": "2026-10-18",
+  "version": "2.1.0",
+  "released": "2026-11-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Reference sweep: renamed skills (secret-scan-method, threat-model-method, log-tail-method, endpoint-test-method).",
+  "summary": "/triage-errors: the daily production error read — groups the tracker's or log backend's errors, separates new, regressed and rising from known, names each one's code line and release, files a redacted Bug card per real group through /task add; read-only on production.",
   "changelog": "CHANGELOG.md"
 }

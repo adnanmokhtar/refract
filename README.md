@@ -11,7 +11,7 @@ native format of every AI coding tool on your machine.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tools](https://img.shields.io/badge/tools-12-blue.svg)](#supported-tools)
 [![Packs](https://img.shields.io/badge/packs-24-blueviolet.svg)](#whats-inside)
-[![Commands](https://img.shields.io/badge/commands-186-orange.svg)](#the-commands)
+[![Commands](https://img.shields.io/badge/commands-187-orange.svg)](#the-commands)
 [![quality-gates](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml)
 
 <img src="assets/demo.gif" width="800" alt="Terminal recording: sync-to-global.sh installs one repo into six AI coding tools, then the same /audit command is shown in the native format of Claude Code, Gemini CLI, Kimi and OpenCode">
@@ -170,7 +170,7 @@ path or a plain-English description of the area you mean.
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
 | `/upgrade-dep` | Upgrade one dependency, framework or runtime to a named version, with the official guide and codemod, and parity proved against a named oracle. |
 
-Another 169 commands ship inside the packs and install per-project when their pack is selected.
+Another 170 commands ship inside the packs and install per-project when their pack is selected.
 
 **Six global commands and 29 pack commands support `--plan`**, which is where this gets economical:
 plan on a strong model, execute on a cheap one.
@@ -217,7 +217,7 @@ re-verify rather than silently shipping a broken translation.
 | **24 packs** | Role-based knowledge tracks, not framework tracks |
 | **99 agents** | Specialised reviewers and architects |
 | **234 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **186 commands** | 17 global + 169 pack-level |
+| **187 commands** | 17 global + 170 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
 | **151 scripts** | Validators, linters, sync, search and audit tooling |

@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**232 commands** — core 17 · 24 packs (169) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**233 commands** — core 17 · 24 packs (170) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -29,7 +29,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — learning](#pack--learning) — 8
 - [Pack — migration](#pack--migration) — 21
 - [Pack — mobile](#pack--mobile) — 6
-- [Pack — observability](#pack--observability) — 9
+- [Pack — observability](#pack--observability) — 10
 - [Pack — performance](#pack--performance) — 4
 - [Pack — product](#pack--product) — 6
 - [Pack — security](#pack--security) — 6
@@ -288,6 +288,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/obs-audit` | Read-only observability audit: logs, traces, metrics, errors, alerts, SLOs, pipeline; class ledger… | `--whole-repo`, `--classes=<family,…>`, `--live=<source=url,…>` | `/obs-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<source=url,…>]` |
 | `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. | `--all`, `--live=<source=url,…>` | `/obs-fix [audit-report-path \| finding-id ... \| --all] [--live=<source=url,…>]` |
 | `/postmortem` | Blameless postmortem: timeline, contributing factors, owned action items each proved by a red test… | `--run=<run-id>`, `--revert=<sha>`, `--incident=<id>`, `--notes=<path>` | `/postmortem --run=<run-id>` |
+| `/triage-errors` | Daily production error triage: read the error tracker (or the log backend) for a window, group… | `--since`, `--env`, `--yes` | `/triage-errors [--since=24h] [--env=production] [--yes]` |
 
 ## Pack — performance
 

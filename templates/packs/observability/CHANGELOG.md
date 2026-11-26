@@ -9,6 +9,20 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-11-26
+
+**`/triage-errors` — the daily production read.** The pack checked that the error tracker was
+wired (`error-tracking-scan`) and handled incidents (`/investigate-incident`, `/postmortem`), but
+nothing read the tracker every day. A new error from yesterday's deploy sat among the old ones
+until a customer reported it.
+
+`/triage-errors` reads a window (default 24h) from a Sentry-compatible tracker, another tracker's
+API or the log backend. It groups the errors and sorts each group as NEW, REGRESSED, RISING or
+KNOWN. For each group that is not known, it names the code line at the event's release, the
+release that brought it and the suspect commits. It then files a Bug card through `/task add`,
+with personal data redacted and a `Source: <tracker>:<id>` line that makes the board the memory.
+It is read-only on production and on the tracker. `--yes` is for a scheduled run.
+
 ## 2.0.4 — 2026-10-18
 
 - References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).
