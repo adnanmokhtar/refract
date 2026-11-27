@@ -7,6 +7,8 @@ Status: Proposed | Accepted | Deprecated | Superseded by ADR-<NNNN>
 
 What's the problem? What constraints exist? What forced this decision (incident, scaling, regulation, vendor change)?
 
+**The evidence:** the measured number, its source (a metric, a profile, an incident, a bill) and the target it misses. "We need scalability" alone is not a context. When a decision card came first (`.claude/templates/snippets/decide-before-change.md`), this ADR is that card written out.
+
 ## Decision
 
 What did we decide? **One sentence at the top.** Then elaborate.
@@ -20,11 +22,17 @@ What did we decide? **One sentence at the top.** Then elaborate.
 ### Negative
 - <cost>
 - <new constraint we're now living with>
+- <what this delays — the work that waits while it is built>
 
 ### Neutral / trade-offs
 - <thing that changes but isn't strictly better or worse>
 
 ## Alternatives considered
+
+### Option 0: leave it as it is
+- What happens if nothing changes: <the number now, and at the expected growth>
+- Why rejected: ...
+(When `decide-before-change.md` § 4 drops option 0 — a security, data-loss or correctness defect, a new project, or the how of a feature already approved — write `n/a — <why>` here.)
 
 ### Option A: <name>
 - Pros: ...

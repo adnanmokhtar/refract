@@ -6,6 +6,22 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.6.0 — 2026-11-27
+
+**Decide before you change** (`templates/snippets/decide-before-change.md`).
+- **`@architect`:** when the design needs something the project does not run today, it returns
+  `NEEDS_INPUT` with a decision card. That covers a dependency, a store, a service, a queue or a
+  cache that the approved brief did not already pick.
+  - **The card shows** the problem with its number, the options with the existing primitive or
+    the sibling's shape first, cost against gain, what it delays, the risks, and a recommendation.
+  - **On a tie, the simpler shape wins.**
+  - **The ADR:** the card's options become its alternatives (leaving it included when it was
+    an option), and the card's revisit trigger becomes its review trigger.
+  - **It reads `decision.md`** first, so a card already picked is not raised again.
+- **`/add-feature`** writes each card and the person's pick to `ai/runs/<run-id>/decision.md`
+  (and `brief.md` under `/task`). **H2** shows a `Decisions:` line, and P12 carries the cards into
+  the record's `design.md`.
+
 ## 1.5.0 — 2026-11-26
 
 **Understand first, then build.** `/add-feature` now has a step 6 in P0: run

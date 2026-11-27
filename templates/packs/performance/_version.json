@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "2.3.0",
-  "released": "2026-10-15",
+  "version": "2.4.0",
+  "released": "2026-11-27",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "New 20d lane (side effects before a cron's fleet lock), proxy keep-alive chain, metric-label cardinality grep; P3/P5/2c/14/20c/24a/6a/11a/memory/caching greps re-measured.",
+  "summary": "/perf-fix puts a stop that is a choice (a cache, a capacity value, a new store or dependency) as a decision card: measured impact and share, the in-code primitive first, leaving it (kept even for MUST FIX), cost against gain, what it delays, the risks; the pick lives in ai/dynamic/decisions-pending.md under the card's key (the closure-table row cites it), and a data-model change is carded by /db-fix.",
   "changelog": "CHANGELOG.md"
 }

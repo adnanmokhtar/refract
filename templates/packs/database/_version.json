@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "2.3.0",
-  "released": "2026-10-18",
+  "version": "2.4.0",
+  "released": "2026-11-27",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "schema-map.py laravel lane (Blueprint migrations → the same DDL), used by the migration pack's I-SCHEMA V1 side.",
+  "summary": "/db-fix puts an index without a measured WORTH IT verdict, a migration a rewrite could avoid, denormalisation, a view, partitioning, a cache or a pool value as a decision card; /optimize-query asks with one, and its worth-it verdict stands as the index's cost-benefit.",
   "changelog": "CHANGELOG.md"
 }

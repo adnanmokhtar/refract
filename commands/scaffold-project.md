@@ -99,7 +99,7 @@ The shape narrows Phase 2.2 to a 3-option ranked stack.
 
 ### 2.2 — Propose 3 ranked stacks (Phase 2a gate)
 
-Pick the **default + 2 alternatives** for the project shape. Each option includes: name, rationale, day-1 wins, watch-outs.
+Pick the **default + 2 alternatives** for the project shape. Each option includes: name, rationale, day-1 wins, watch-outs, what it costs to run a month at the expected size (hosting, paid services; `free tier` when it fits), and how hard it is to leave later ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 4). A new project has no "leave it" option. The simpler stack wins a tie, and a service the brief does not need is not added because it is popular.
 
 #### Stack presets (defaults per shape)
 
@@ -117,7 +117,7 @@ Pick the **default + 2 alternatives** for the project shape. Each option include
 
 **No major versions in this table, on purpose.** It went stale once already: it said Astro 5 while the registry shipped Astro 7 (2026-10-25). Phase 3 pins what the registry ships on the day.
 
-Print the 3 options with rationale + day-1 wins + watch-outs. **STOP. Wait for the user to pick #1 / #2 / #3 / "describe a different stack".** Do not proceed without explicit pick OR `--no-prompt` (which forces #1).
+Print the 3 options with rationale + day-1 wins + watch-outs + monthly running cost + how hard it is to leave later. **STOP. Wait for the user to pick #1 / #2 / #3 / "describe a different stack".** Do not proceed without explicit pick OR `--no-prompt` (which forces #1).
 
 ### 2.3 — Architecture + design system proposal (Phase 2b gate)
 

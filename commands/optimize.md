@@ -32,7 +32,7 @@ The agent:
    - **Cross-cutting duplication** — auth / logging / error handling / metrics / retries duplicated across modules instead of centralised.
    - **Missing abstraction** — ≥3 sites duplicating the same shape (begs for a shared primitive).
 
-2. **Applies architectural foundations FIRST** — moves responsibility to the right layer, introduces shared abstractions, fixes layering, centralises cross-cutting concerns, splits god modules, decouples cycles. These are larger commits with bigger leverage.
+2. **Applies architectural foundations FIRST** — moves responsibility to the right layer, introduces shared abstractions, fixes layering, centralises cross-cutting concerns, splits god modules, decouples cycles — each only after the person picked it on its decision card (step 1.7). These are larger commits with bigger leverage.
 
 3. **Re-detects tactical findings** — many findings dissolve automatically after architectural fixes (e.g., 47 N+1 queries become 22 after fetching moves to service layer; 5 dedup sites disappear once a shared primitive is introduced; 14 ad-hoc try/catch patches disappear once error middleware is centralised).
 
@@ -49,7 +49,7 @@ The agent:
 
 5. **Behaviour-preserving** for architectural moves and tactical structural fixes (clean code, refactoring, dead code, dedup, over-abstraction). Tests must stay green; observable behaviour unchanged.
 
-6. **Behaviour-changing where safe** for perf fixes (parallelize, batch, cache) — adds assertions in same commit.
+6. **Behaviour-changing where safe** for perf fixes (parallelize, batch, cache; a cache the path does not have yet only after its card, step 6.5) — adds assertions in same commit.
 
 Output: architectural fixes FIRST, then tactical findings, commits, diff stats, test status, perf wins (measured).
 
@@ -82,6 +82,8 @@ Examples:
 
 ## What happens internally (silent)
 
+Silent except the decision cards (steps 1.7 and 6.5): an architectural move or a new moving part is the person's pick, never this command's ([`decide-before-change.md`](../templates/snippets/decide-before-change.md)).
+
 **Discipline:** MUST read [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating code fixes (SOLID + clean-code single source of truth).
 
 1. **Phase 0 — Architectural diagnosis** (the bigger picture, dispatched via `architectural-diagnosis` skill in code-quality pack). Builds project-wide maps:
@@ -96,6 +98,8 @@ Examples:
 1.5. **Phase 0.5 — test-shield (coverage gate)** (dispatched via `test-shield` skill in code-quality pack). Before any behaviour-preserving fix touches a branch, measure coverage of the in-scope set; for each touched-but-uncovered branch, pin current behaviour with a characterization test (`/add-test`) BEFORE the fix, or mark the finding `blocked`. "Tests stay green" is only proof of preservation when a test exercises the touched branch. **Write the measured baseline percentage to `ai/optimize/_coverage-baseline`** — this is the artifact step 7's "coverage must not drop" compares against, and the validator reads it mechanically (`check_coverage_not_dropped`: after-coverage from the report's `Coverage:` line must be ≥ baseline). If the baseline file or the `Coverage:` line is absent the gate degrades to best-effort (agent-side) and only warns.
 
 1.6. **Phase 0.6 — Characterize (behaviour baseline)**, before Phase 1's first edit (proposal §7 rule 1). test-shield pins the branches tests miss. This step records what the in-scope code *does*. Run the testing pack's `characterize` skill over the resolved scope, or reuse registry entries (`.claude/baselines/main/manifest.json`) whose `scope_paths` cover it. Then `bash .claude/scripts/baseline-capture.sh capture --paths=<scope paths>` writes `.claude/baselines/<pre-edit sha>/`. For a hot path a perf finding will claim, register a `performance` entry first (`profile-endpoint` / `lighthouse-ci` § Baseline registration). With the testing pack absent, the run summary says `Behaviour: not characterized (testing pack absent)`.
+
+1.7. **Decide — round 1, before Phase 1's first edit.** Each foundation move in `ai/optimize/_architecture-decisions.md` first survives [`refute-before-report.md`](../templates/snippets/refute-before-report.md) § 10 in a verifier that did not raise it. Each survivor becomes a decision card ([`decide-before-change.md`](../templates/snippets/decide-before-change.md)). Its evidence is the diagnosis's own measurement: the hotspot's churn × complexity and fix share, the cycle, the count of duplicated sites, the layer edges. Its options are leaving it, the smallest move that closes the measured problem, and the full move. `ai/optimize/decisions.md`, the other stores (`decide-before-change.md` § 9), and under `/task` the brief in the record folder, are read first: a move already decided, built or left as is, is matched by its key (`<change>:<target>`, never its `F-A` number) and not carded again unless its revisit trigger fired. The new cards are written there and shown together, and the run waits once for the person's picks. Phase 1 applies only the picked options. A move left as is is recorded and dropped, and the tactical findings it would have dissolved stay in the scan. In a dispatched run (`drain=1`, or any `brief=approved` dispatch), no new card is decided here: Phase 1 applies only the moves already picked (in the store or the brief), each newly carded move is held out with the tactical work in the modules it would change, the rest of the run works on the current tree, and the run ends with `NEEDS_INPUT` and the new cards. A module with held work is marked `awaiting decision` in the progress file, not done, and any later run, plain or `--resume`, takes it first once its pick is in the store ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 8).
 
 2. **Phase 1 — Apply foundations FIRST** (architectural closure verbs):
    `move-responsibility`, `introduce-abstraction`, `fix-layering`, `centralize-cross-cutting`, `split-god-module`, `decouple-cycle`, `merge-anemic-module`. Each foundation fix gets one commit. Re-runs typecheck + scoped tests after each.
@@ -112,14 +116,16 @@ Examples:
    - **Performance** — for data-layer and runtime hotspots, dispatch the specialist that owns the detector and APPLY its proposal in-band rather than reimplementing inline: `performance-optimizer` (hot-path CPU / allocation / async), `query-optimizer` + `database-optimizer` (index / query-plan / N+1). These DB agents are **propose-only**; `/optimize` is the applier — it takes their index/migration proposal, runs the before/after query-plan, applies, and commits. Closure verbs: `parallelize`, `batch`, `cache-with-explicit-ttl`, `add-index`, `project-columns`, `push-down-filter`. **Algorithmic-complexity findings** — a slowness that is a *complexity-class* defect (accidental-quadratic, wrong-container, exponential recursion) rather than a measured constant-factor — are **out of `/optimize`'s lane**: route them to the algorithms pack when installed (`/analyze-complexity` is its whole-repo audit — `complexity-scan` detects and grades; `/design-algorithm --from-audit=<that report>` is the fixer; the `algorithm-designer` agent owns the complexity proof + correctness argument). Without the pack, performance `request-path-scan` §11 grades the class and `/perf-fix` fixes it. `/optimize` sees the structural symptom, not the asymptotic fix.
    - **Render waste** (`frontend-*` / `mobile-*`): `scope-state-down`, `move-to-lifecycle`, `extract-const-subtree`, `memoize`, `virtualize-list`, `scope-animation`, `select-store-slice` (per `mobile/rules/render-discipline.md` § The 8 detectors; measured rebuild-count / frame-time delta required).
 
+6.5. **Decide — round 2, for what the scan found.** A wave finding whose closure is a decision is held out of the wave, not applied ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 1). That covers a new cache (`cache-with-explicit-ttl` where no cache serves the path), an `add-index` on a populated table without a measured `WORTH IT` verdict, a migration that rewrites a populated table, a new dependency, and a production capacity value. After the wave, these are shown as cards in one round, with the measured baseline the finding already carries, after the same read of `ai/optimize/decisions.md` as round 1. The picked options are then built as a second, short wave under the same gates (step 7). With nothing held out, there is no round 2. In any run, direct or dispatched, a module with a held finding that has no pick yet is marked `awaiting decision` in the progress file, never `done`. In a dispatched run, round 2 builds the findings already picked and returns the new cards as `NEEDS_INPUT`, like round 1.
+
 7. **Verify continuously** — lint + typecheck + scoped tests after each fix. **Coverage must not drop** — enforced mechanically by the validator (`check_coverage_not_dropped`) against the `ai/optimize/_coverage-baseline` written in Phase 0.5; degrades to best-effort warn if the baseline / `Coverage:` line is missing. Behaviour-preserving for all structural fixes (architectural moves, refactoring, dead code, dedup, over-abstraction); perf fixes ship with assertions + before/after measurement (a measured `baseline:` + `after:` pair recorded in `findings/<id>.md` — the validator rejects perf rows without one). **After Phase 1 and again after the fix wave**, `python3 .claude/scripts/behavior-diff.py --gate=G14 --base=<pre-edit sha>` must PASS. A DIFF on a structural fix means it changed behaviour: that finding halts and is reverted or re-classified, and the baseline is never re-recorded. **A perf claim goes through G4**: `behavior-diff.py --gate=G4` runs `perf-compare.py` with base and head interleaved, ≥10 runs a side (`THR-PERF-REGRESSION`). The `baseline:` / `after:` pair is that run's medians, and the claim carries the verdict. One before run and one after run is not a perf claim. `TOO-NOISY` and the other refusals are reported under `Not validated:`, never as wins.
 
-8. **Self-resolve common questions** — closure verbs are mechanical. Agent doesn't ask permission per fix.
+8. **Self-resolve common questions** — closure verbs are mechanical. Agent doesn't ask permission per fix. A decision is not a question to self-resolve: it waits for its card (steps 1.7 and 6.5).
 
 9. **Halt only on genuine blockers**:
    - Architectural move would change observable behaviour where it must be preserved (re-classify as refactor; user decides).
-   - Idiom missing for a functional fix (e.g., user wants caching but project has no cache primitive — surfaces "add primitive first via /setup-project --refine").
-   - **New dependency required for a perf fix** — a fix that pulls in a package the project doesn't already use (caching client, faster parser, a utility lib for one micro-opt) halts for a dependency review (maintenance / license / size / supply-chain) before install. Prefer an already-present primitive or the stdlib; a 2% perf win is rarely worth a new transitive tree. Decision recorded in the run summary, or an ADR if the dep touches a security / data surface.
+   - Not a halt: a fix that needs a primitive the project lacks (e.g., caching with no cache primitive). Such a fix is a decision (round 2, step 6.5); once picked, the option builds the primitive in the project's own shape, with its ADR, and `/setup-project --refine` afterwards records the new idiom.
+   - **New dependency required for a perf fix** — a fix that pulls in a package the project doesn't already use (caching client, faster parser, a utility lib for one micro-opt) is held for round 2 (step 6.5). Its card carries the dependency review (maintenance / license / size / supply-chain) in its risks, and an already-present primitive or the stdlib as an option; a 2% perf win is rarely worth a new transitive tree. Decision recorded in `ai/optimize/decisions.md` and the run summary; a picked dependency is a moving part, so it also gets an ADR ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 9).
    - Security-sensitive change beyond mechanical fix.
    - Cyclic dependency that requires multi-PR decoupling (surfaces a small plan).
    - Otherwise: just optimize.
@@ -132,10 +138,10 @@ Examples:
 
 `--plan` is **not** a louder `--dry-run`. It runs Phase 0 (architectural diagnosis) and the Phase 2 tactical scan above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
 
-1. **Read-only phases only.** No foundation fix and no tactical fix is applied, Phase 0.6's capture is not taken (the executor takes it before its first edit), nothing is committed, and `ai/optimize/ledger.md` is not advanced. The Phase-0 diagnosis still runs in full — it is what makes the plan worth handing off — and its findings are written into the plan, not into `ai/optimize/_architecture-decisions.md` as a run artifact.
+1. **Read-only phases only.** No foundation fix and no tactical fix is applied, Phase 0.6's capture is not taken (the executor takes it before its first edit), nothing is committed but the decision store (one `chore(decision)` commit, by name, when a pick was written), and `ai/optimize/ledger.md` is not advanced. The Phase-0 diagnosis still runs in full — it is what makes the plan worth handing off — and its findings are written into the plan, not into `ai/optimize/_architecture-decisions.md` as a run artifact. The decision cards of both rounds (steps 1.7 and 6.5) are shown in one round before the plan is written. A picked option becomes Steps, and its pick is written to `ai/optimize/decisions.md`, the one write a plan run makes; an unanswered card is a `## Known unknowns` row reading `Decide first:`, never a Step, and the tactical clusters in the modules it would move go there with it ([`plan-flag.md`](../templates/snippets/plan-flag.md)).
 2. **Expand the internal plan into the canonical handoff format.** All **eight** headers are mandatory — `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Constraints` / `## Steps` / `## Verification` / `## Status` — plus the `Plan ID`. `/execute-plan` halts on a file missing any one of them ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt), so an eight-header file is the contract, not a nicety. `## Approach` and `## Known unknowns` are accepted optional extras.
-3. **Map this command's own vocabulary onto those headers.** Foundation fixes lead `## Steps` in dependency order, tactical clusters follow; touched modules become `## Outputs`; "behaviour-preserving for structural fixes", "every perf claim ships a baseline + post-fix number", "coverage must not drop" and "behaviour preserved = G14 PASS against the Phase 0.6 capture" become `## Constraints`. The measured `## Verification` commands are the project's lint, typecheck and test, `behavior-diff.py --gate=G14`, and for each perf step the registered G4 entry it must clear.
-4. **Write** to `.claude/plans/optimize-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed, no changelog entry.
+3. **Map this command's own vocabulary onto those headers.** Foundation fixes lead `## Steps` in dependency order, tactical clusters follow; touched modules become `## Outputs` (a module only an unpicked card touches is not one); "behaviour-preserving for structural fixes", "every perf claim ships a baseline + post-fix number", "coverage must not drop" and "behaviour preserved = G14 PASS against the Phase 0.6 capture" become `## Constraints`. The measured `## Verification` commands are the project's lint, typecheck and test, `behavior-diff.py --gate=G14`, and for each perf step the registered G4 entry it must clear.
+4. **Write** to `.claude/plans/optimize-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed but that decision-store commit, no changelog entry.
 
 Full flag contract: [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). Field-by-field format: [`templates/canonical-command-template.md`](../templates/canonical-command-template.md) § "Phase 3.5 — Handoff".
 
@@ -146,7 +152,7 @@ Single source of truth: **`ai/optimize/progress.md`**.
 ### How it works
 
 - **First run** → builds module inventory + writes progress file (all `pending`). Runs first module.
-- **Subsequent runs** → reads progress file, picks next `pending` module (or use `<scope>` to override). Already-`done` modules skipped.
+- **Subsequent runs** → reads progress file, takes first a module `awaiting decision` whose pick is now in `ai/optimize/decisions.md`, then the next `pending` module (or use `<scope>` to override). Already-`done` modules skipped.
 - **`/optimize --status`** → read-only progress; no work.
 
 ### Progress file shape
@@ -161,7 +167,8 @@ Codebase: <project-root>/src/
 - Total areas:   22 modules + shared/ + core/
 - Done:           4
 - In progress:    1
-- Pending:       19
+- Awaiting decision: 1
+- Pending:       18
 - Blocked:        0
 
 ## Areas
@@ -169,7 +176,7 @@ Codebase: <project-root>/src/
 ### profile [done] (2026-05-02, 12m)
 - Files walked: 28
 - Findings closed: 24 / 27
-- Halts: 3 (idiom missing — needs /setup-project --refine)
+- Decisions: 3 cards in round 2 (ai/optimize/decisions.md) — 2 built, 1 left as is
 - Commits: 24
 - Diff: -344 lines
 - Perf wins: listProfile() 200ms → 35ms p95
@@ -185,9 +192,12 @@ Codebase: <project-root>/src/
 - Paused at: 18 of 32 files
 - Reason: time-boxed
 
+### billing [awaiting decision]
+- Card: `split-module:src/billing` (ai/optimize/decisions.md) — no pick yet; its tactical work is held with it
+
 ### inventory [pending]
 ### page-builder [pending]
-... (19 more)
+... (16 more)
 ```
 
 ### Daily workflow
@@ -204,18 +214,19 @@ Overrides:
 ```
 /optimize the orders module     # specific area, skips ahead
 /optimize --status              # progress report only
-/optimize --resume              # pick up in-progress module
+/optimize --resume              # pick up in-progress module, then any `awaiting decision` module whose pick is in
 /optimize --reset profile       # re-run profile from scratch
 /optimize --refresh             # RE-SCAN codebase, MERGE into existing progress.md
                                 #   - If progress.md missing: builds it from scratch (same as first run)
                                 #   - If progress.md exists:
                                 #     * new areas (modules added since last scan) → appended as `pending`
                                 #     * missing areas (modules removed/renamed) → marked `archived` (kept for history)
-                                #     * existing rows (done / in-progress / blocked / pending) → preserved untouched
+                                #     * existing rows (done / in-progress / awaiting decision / blocked / pending) → preserved untouched
                                 #   - Updates Summary counts to reflect new totals
                                 #   - NO fix work performed; safe to run anytime
 /optimize --ignore-ledger       # TRULY FRESH SCAN — act as if no optimize was ever done
-                                #   - Backs up ai/optimize/* (ledger, decisions, progress) to *-<iso>.bak.md
+                                #   - Backs up ai/optimize/* (ledger, _architecture-decisions, progress) to *-<iso>.bak.md
+                                #   - Keeps ai/optimize/decisions.md in place: the person's picks are not findings
                                 #   - Re-discovers modules + dependency graph + responsibility map from source
                                 #   - Re-runs Phase 0 (architectural diagnosis) from scratch
                                 #   - Re-runs Phase 2 (tactical sweep) on every discovered module
@@ -250,6 +261,7 @@ Architectural fixes: 3
   Moved DB queries from controllers → OrderRepository (eliminated 22 N+1 patterns + 8 raw query duplicates)
   Introduced PaginationStrategy abstraction (eliminated 5 dedup sites)
   Centralized error-handling middleware (eliminated 14 ad-hoc try/catch patches)
+Decisions:           4 cards (ai/optimize/decisions.md) — 3 built, 1 left as is (split OrderService: fill-in)
 
 Tactical findings closed: 18 (down from 67 — 49 dissolved by foundations)
   refactoring:           7 (extract-method ×4, flatten-conditional ×2, replace-magic ×1)
@@ -374,7 +386,7 @@ Applied silently per the discipline:
 - **Final report MUST end with paste-ready next steps.** *(Checked by `validate-optimize-artifacts.sh § check_actionable_next_steps` — agent-side; surfaced only when the agent runs the validator.)* Per `actionable-next-steps.md` snippet contract; reports a failure when missing or when deferrals are described without commands.
 - **Honesty clause in the summary block is mandatory.** The lines `boot-check:` / `Not validated:` / `Risks:` / `Revert:` close every run summary. The agent MUST record `boot-check: pass | skipped(<reason>)` (mechanical — `check_boot_check_record`; a skip must also be named under `Not validated:`), MUST name validation that did NOT run (load tests, prod-sized data, environments unavailable) or state `none — <what fully ran>`. `Tests: N/N passing` alone hides the negative space — the same failure mode as the Trusted Summary. `Revert:` gives the exact git command for this run's commit range.
 - **Refute before fixing.** *(Agent-side — `refute-before-report.md`.)* The agent that detected a finding never clears it; an unverified candidate is never fixed.
-- **Architectural diagnosis ALWAYS runs first**. *(Agent-side orchestration.)* Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
+- **Architectural diagnosis ALWAYS runs first**. *(Agent-side orchestration.)* Tactical fixes are skipped on findings that would dissolve under a foundation fix; the person picks the foundation on its decision card (step 1.7).
 - **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale. *(Agent-side.)*
 - Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape). *(Agent-side.)*
 - Net-lines ≤ 0 for tactical structural fixes; refactoring class allowed small +/- but cites why; architectural fixes net-lines budgeted (move-responsibility may +N then -2N when consumer code shrinks). *(Structural rows: mechanical when `--phase-base` + git commits match `<id>:` / `optimize/<id>:` — else warn-only.)*
@@ -384,7 +396,7 @@ Applied silently per the discipline:
 - One commit per finding (architectural or tactical). *(Agent-side.)*
 - Security findings always ship with assertions (test added in same commit). *(Agent-side.)*
 - **Performance findings always ship with a measured baseline + post-fix `after` pair.** *(Mechanical — `validate-optimize-artifacts.sh § check_perf_measurement_row` for `class: performance` / `render-waste` rows; `§ check_perf_claims_final_report` for perf claims in the report.)* Record both as `baseline:` / `after:` tokens (or an `N ms → M ms` measured pair) in `findings/<id>.md`. No perf claim ships without a measured pair — the validator rejects it.
-- **No silent new dependency.** A perf fix that adds a package the project doesn't already use halts for a dependency review before install (see § blocker list); prefer an already-present primitive. *(Agent-side.)*
+- **No silent new dependency.** A perf fix that adds a package the project doesn't already use is held for its decision card (step 6.5), with the dependency review in the card's risks; prefer an already-present primitive. *(Agent-side.)*
 
 User sees the result, not the policing.
 

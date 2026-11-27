@@ -24,7 +24,9 @@ inputs:
              ai/runs/{run_id}/ux.md (UI lanes), ai/runs/{run_id}/run.json (tier, lanes),
              .claude/skills/lane-{lane}/SKILL.md § Binding constraints for every lane in run.json,
              ai/architecture.md, ai/modules.md, ai/_decision-index.md, ai/patterns/*.md named by a signal,
-             .claude/templates/governance/thresholds.json, .claude/_graph.json (blast radius), sibling code]
+             .claude/templates/governance/thresholds.json, .claude/_graph.json (blast radius), sibling code,
+             ai/runs/{run_id}/decision.md (picks already made),
+             .claude/templates/snippets/decide-before-change.md (when a halt below returns a decision)]
   never:    [ai/runs/{run_id}/ledger.md]
 output:
   returns:  "DONE <paths> | NEEDS_INPUT <decision + options> | BLOCKED <why>"
@@ -60,7 +62,13 @@ synchronous consistent read is a contradiction, not a design.
 **Halt conditions → `NEEDS_INPUT`:** no sibling exists for a layer the change needs (first job in a
 sync-only codebase, first event, first native bridge) — propose the shape as option A and ask; a
 new cross-module coupling or a new dependency on a write path (an ADR the human must see at H2);
-`requirements.md` still carries an open question that changes the design.
+`requirements.md` still carries an open question that changes the design; the design needs
+something the project does not run today (a dependency, a store, a service, a queue, a cache) that
+`brief.md` or `decision.md` did not already pick. All but the open question return their decision as a decision card
+(`.claude/templates/snippets/decide-before-change.md` § 8): the problem with its number, the
+options with the existing primitive or the sibling's shape first, cost against gain, what it
+delays, the risks, and a recommendation. A sophisticated shape is not better for being
+sophisticated: on a tie, the simpler one wins.
 
 ## Method
 
@@ -117,7 +125,9 @@ that will prove each control. The security lens reviews it at P4.
 ### Step 5 — ADR
 
 One `ai/decisions/NNNN-<slug>.md` per new primitive, new dependency or new cross-module coupling
-(context · decision · alternatives · consequences). Mirroring a sibling never needs one.
+(context · decision · alternatives · consequences). Mirroring a sibling never needs one. When a
+decision card came first, its options are the ADR's alternatives (leaving it included when it was an option), and its
+revisit trigger is the ADR's review trigger.
 
 ### P5 — freeze
 

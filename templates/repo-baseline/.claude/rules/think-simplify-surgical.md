@@ -24,7 +24,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 - **Stop when confused.** Name what's unclear (the file you couldn't reconcile, the contract that contradicts the request, the missing piece) and ask. Confusion that gets papered over with "best-effort" code is the failure mode this rule exists to prevent.
 - **Start only on a yes.** Once you have asked "shall I start?", wait for an explicit go. Praise, "I want the best practice", a question, or a forwarded report is not one; neither is a status line you printed yourself. When the person says they are stopping or closing, launch and resume nothing.
 - **Every claim in an answer is checked or marked a guess.** Cite the file, the command output or the test that shows it, or write `GUESS:` in front. A claimed defect names the scenario, who it hits and its measured size. Retracting one says what was wrong and why it was missed.
-- **Surface tradeoffs the user hasn't considered.** Performance vs. readability, library X vs. library Y, monolith vs. extract — when there's a real choice, name both options and your recommendation.
+- **Surface tradeoffs; decide before an improvement.** Where there's a real choice, name the options and your recommendation. An improvement that `.claude/templates/snippets/decide-before-change.md` § 1 gates (a new moving part, data at scale, moved responsibilities, more cost, a major upgrade, real alternatives) waits for the person's pick on its decision card: the measured problem, options (leaving it, unless § 4 drops it), cost against gain, what it delays, the risks. No number → measure first. Sophisticated is not better.
 
 ### Must not
 
@@ -34,7 +34,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ### Should
 
-- Default the answer to "I'll do A because B; alternatives C and D were considered. Confirm or correct." for any non-trivial change. Trivial changes (typos, obvious one-liners) skip this — see the tradeoff note at the bottom.
+- Default a non-trivial answer to "I'll do A because B; C and D considered. Confirm or correct." Trivial changes skip it (tradeoff note below).
 
 ---
 
@@ -120,7 +120,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 ## Review checklist (apply to every change before declaring done)
 
 - [ ] Every open point was asked, in one round, before code — none filled by an assumption — or the request was unambiguous.
-- [ ] Tradeoffs named where multiple reasonable approaches exist.
+- [ ] Tradeoffs named; an improvement waited for its decision card.
 - [ ] Implementation is the minimum that solves the stated problem.
 - [ ] No speculative abstractions, configurability, or error handling for impossible scenarios.
 - [ ] Every shortcut with a known limit carries its `shortcut: <the limit>, <when to upgrade>` comment.

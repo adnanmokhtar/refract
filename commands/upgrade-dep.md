@@ -3,7 +3,7 @@ description: Upgrade one dependency, framework or runtime to a named version —
 compatibility: Any stack, any ecosystem — the manifest + lockfile pair and the parity oracle are detected per PROJECT_KIND, not assumed. Requires a package manifest under version control and a clean tree. Runtime-class upgrades additionally require the CI / container / deployment pins to be in this repo, or the run halts rather than shipping a local-only upgrade.
 kind: command
 pack: orchestration
-version: 1.0.0
+version: 1.1.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -128,6 +128,7 @@ A pin that lives **outside** this repository (a cloud console setting, a base im
 1. **Pre-flight** — clean tree (or `--allow-dirty`), the manifest and lock are both tracked, the oracle's baseline command runs green *before* anything changes. A red baseline halts: an upgrade onto a broken tree cannot be told from an upgrade that broke it.
 2. **Classify** — resolve target → ecosystem, current version, target version, direct vs transitive, and the class table above. Print it.
 3. **Source the breaking changes** — fetch the vendor's guide / release notes / CHANGELOG for the exact span, and record the citation in the report. **Cite-or-halt**: no authoritative source for a major → HALT (`--no-guide` proceeds only with the absence stated in `Not validated:`). Spanning several majors is walked **one major at a time**, each with its own guide, its own commits and its own oracle run.
+3.5. **Decide (major-lib, major-framework, runtime)** — the guide now says what the upgrade costs, so the person decides whether it is worth it now, on a decision card ([`decide-before-change.md`](../templates/snippets/decide-before-change.md)). The problem: why move — an advisory, an end-of-support date, a feature the project needs. With none of them, the recommendation is to stay, or the newest version inside the current major. The options: stay (what staying costs, and until when), the newest version inside the current major (`--stay-on-major`), and the named major. The cost: the guide's breaking-change rows, what the codemod covers, and the fallout packages. The card names what the upgrade delays. The card and the pick are written to `ai/dynamic/decisions-pending.md`, one entry in that file's format. The run waits for the pick, then applies only that option, or stops when the pick is to stay. A later run on the same target reads that entry first (and under `/task`, the brief) and does not ask again unless its revisit trigger fired. In an unattended run the card comes back as `NEEDS_INPUT` before anything changes. A patch, a minor and `--security` need no card. `--dry-run` prints the card with the checklist.
 4. **Pin the oracle** — per the table above; capture the baseline; commit it first if it had to be created. Characterize and capture the registered baselines here, on the pre-upgrade tree (§ Parity oracle).
 5. **Apply** — the vendor's codemod first, its output committed **verbatim and alone**. Then the manifest/lock bump. Then hand fixes, grouped one commit per breaking-change item.
 6. **Sweep the residue** — the guide's breaking-change list becomes a checklist where every row ends `applied` / `not applicable — <why>` / `TODO`. Removed APIs are grepped for by name across the tree; a hit that survives the codemod is a row, not a shrug.
@@ -137,9 +138,10 @@ A pin that lives **outside** this repository (a cloud console setting, a base im
 
 ## Commit shape
 
-Four commit kinds, in this order, never mixed:
+Five commit kinds, in this order, never mixed:
 
 ```
+0  chore(decision): <key>                      ai/dynamic/decisions-pending.md only, after step 3.5
 1  chore(deps): <name> <from> → <to>          manifest + lock only
 2  chore(codemod): <tool> output, verbatim     no hand edits in this commit
 3  fix(<area>): <breaking-change item>         one per guide item, with its citation
@@ -181,7 +183,7 @@ Actionable next steps:
 
 ## What you DON'T see
 
-Phase numbers, ledger states, ADR prompts — unless a genuine halt needs your decision. Just the classification, the evidence, and what is still open.
+Phase numbers, ledger states, ADR prompts — unless a genuine halt needs your decision, or a major or runtime upgrade shows its decision card (step 3.5). Just the classification, the evidence, and what is still open.
 
 ## Optional flags
 

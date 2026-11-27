@@ -24,7 +24,7 @@ Alternatives considered: <list>
 
 Code changes that implement it: <file:line + commit refs as they happen>
 
-Status: WATCHING (just decided) | VALIDATED (held up 2+ weeks + ≥2 implementations) | PROMOTED → ADR-NNNN | REVERSED (reason)
+Status: AWAITING PICK (a decision card with no pick yet: `Decision: none yet`) | WATCHING (just decided) | VALIDATED (held up 2+ weeks + ≥2 implementations) | PROMOTED → ADR-NNNN | REVERSED (reason)
 ```
 
 ## Promotion criteria

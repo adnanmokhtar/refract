@@ -9,6 +9,24 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.0 — 2026-11-27
+
+**Decide before you change.** A stop in `/perf-fix` that is a choice between ways to close the
+finding is now put as a decision card (`templates/snippets/decide-before-change.md`). That covers a
+cache, a capacity or pool value, a new store or service, and a new dependency. A data-model change
+is carded by `/db-fix`.
+- **The card shows:**
+  - the finding's measured impact and its share of the path's cost;
+  - the options: the in-code primitive first, then the bigger move, and leaving it — a
+    performance finding keeps that option even when it is MUST FIX;
+  - cost against gain, what it delays, the risks, and a recommendation.
+- **The pick is stored** in `ai/dynamic/decisions-pending.md` under the card's key, so it outlives
+  the report; the closure-table row cites it. A pick given in the session is built in that run. A finding waiting for one stays `awaiting
+  decision` while the rest of the list proceeds. An unattended run returns the cards as
+  `NEEDS_INPUT`. A `--plan` file lists an unpicked card under `## Known unknowns`, never as a step.
+- **The other stops are put as before:** a contract or concurrency-semantics stop is put as the
+  change and who it breaks.
+
 ## 2.3.0 — 2026-10-15
 
 **Detector fixes from a read-only audit of a real NestJS + React monorepo.**

@@ -92,11 +92,13 @@ The agent:
 
 3. **Generates ONE unified plan** at `ai/audit/plan.md` — all findings, ranked, with closure verb + estimated fix cost + dependency on other findings. NOT one plan per axis.
 
+3.5. **Decide before executing** (Phase 2c). A plan row whose closure is a decision ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 1, with its exemptions) becomes a decision card. That covers a cache, a circuit breaker, a queue, a new store or dependency, an index or migration on a populated table without a measured `WORTH IT` verdict, a capacity value, a P3 architectural foundation, and a row whose options differ in moving parts, cost, risk or undo. The card's problem is the row's own evidence, measured today and at the target scale. Leaving it is an option unless `decide-before-change.md` § 4 drops it: a security, data-loss or correctness defect (a P0 that corrupts or loses data under load is one). Any other P0 at a target the project has not reached keeps it. The cards go to `ai/audit/decisions.md`, read first (with the brief in the record folder under `/task`) so nothing decided is asked again, and are shown together; the run waits once for the person's picks. Step 4 then executes the picked options, plus every row that needed no card. A row left as is stays in `ai/audit/plan.md` marked `left as is — <date>`.
+
 4. **Executes the plan** — P0 blockers FIRST (sequentially, with verification), then P1 (sequential, with assertions added), then P2 (parallel waves with measurement), then P3 (architectural foundations, sequential — each cascades dissolves P4 candidates), then P4 (parallel waves). After each phase, re-detects against the now-changed tree.
 
-5. **Behaviour-preserving** for architectural / refactoring / dead code / dedup. **Behaviour-changing where safe** for perf + scale fixes (parallelize, batch, cache, circuit-breaker insertion) — adds assertions in same commit. **Security fixes always ship with regression test in same commit.** Before a behaviour-preserving fix touches an UNCOVERED branch, the `test-shield` skill (code-quality pack) pins current behaviour with a characterization test (`/add-test`) first, or marks the finding `blocked` — "tests stay green" only proves preservation when a test exercises the touched branch.
+5. **Behaviour-preserving** for architectural / refactoring / dead code / dedup. **Behaviour-changing where safe** for perf + scale fixes (parallelize, batch, cache, circuit-breaker insertion; a cache or breaker the project does not run yet only after its card was picked, step 3.5) — adds assertions in same commit. **Security fixes always ship with regression test in same commit.** Before a behaviour-preserving fix touches an UNCOVERED branch, the `test-shield` skill (code-quality pack) pins current behaviour with a characterization test (`/add-test`) first, or marks the finding `blocked` — "tests stay green" only proves preservation when a test exercises the touched branch.
 
-6. **Halts ONLY on genuine blockers** — fix would change observable behaviour where it must be preserved (re-classify, surface to user); idiom missing (e.g., user wants Redis but project has no cache primitive); cross-PR decoupling required (surfaces a small plan); infra change beyond mechanical (e.g., add HPA — surfaces ops ticket).
+6. **Halts ONLY on genuine blockers** (the step 3.5 decisions were already answered) — fix would change observable behaviour where it must be preserved (re-classify, surface to user); not a halt: a row that needs a primitive the project lacks (e.g., Redis with no cache primitive) is a decision in Phase 2c, and once picked, its option builds the primitive with its ADR; cross-PR decoupling required (surfaces a small plan); infra change beyond mechanical (e.g., add HPA — surfaces ops ticket).
 
 7. **Boot-check (final)** — after the last fix commit, the `smoke-verify` skill (code-quality pack) boots the app per `PROJECT_KIND` (dev server / server + health probe / CLI / library import) and HALTS if it doesn't start — a green suite doesn't prove the app still wires up (DI / route registration / import cycles). Skippable with `--no-boot-check` for pure libraries. (Not run in `--plan-only` / `--assess`.)
 
@@ -398,6 +400,14 @@ Live, unreviewed  23   ← nobody is looking at these
 **This ships value before a single new detector is written** — it names the unreviewed cells using
 only what exists today. `--plan-only` and `--assess` both emit it.
 
+### Phase 2c — Decide (summary step 3.5)
+- Read `ai/audit/decisions.md`, the other stores (`decide-before-change.md` § 9), and under `/task` the brief in the record folder (`record=`). A row already decided keeps its pick, matched by its key (`<change>:<target>`), never by a plan-row number that a regenerated plan renumbers; a left-as-is row is not carded again unless its revisit trigger fired.
+- Every other row that step 3.5 names becomes a decision card, written to `ai/audit/decisions.md` and shown in one round. Rows that `--refresh` or `--re-audit` add go through this phase on the run that adds them.
+- **The run waits once.** Phases 4–8 apply a carded row only with its pick, and only the picked option. A later run of the multi-day flow reads the picks from `ai/audit/decisions.md`, not from the chat.
+- **Dispatched** (`drain=1`, or any `brief=approved` dispatch): no new card is decided here. Phases 4–8 run every row that needs no card and every row already picked. A newly carded row waits, and with it every row whose `dependency-on` names it, in any tier, and the P4 rows in the modules a carded P3 foundation would change. Held rows stay `pending` in `ai/audit/progress.md`, marked `awaiting decision <key>`, and any later run, plain or `--resume`, takes first the ones whose pick is now in the store; the run ends with `NEEDS_INPUT` and the cards (`decide-before-change.md` § 8).
+- **`--plan-only` and `--plan`:** the cards are shown, and Phase 2c rewrites the rows Phase 2 wrote into the plan. A picked row is planned with its pick; an unanswered one reads `Decide first:` in `ai/audit/plan.md` ([`review-action-plan.md`](../templates/snippets/review-action-plan.md) rule 7), and in the eight-header file it is a `## Known unknowns` row, never a Step, together with every row it holds: the rows whose `dependency-on` names it, and the P4 rows in the modules a carded P3 foundation would change.
+- **`--assess`:** no card and no wait. A recommendation in the narrative that is a decision reads `Decide first:` with its options, leaving it among them.
+
 ### Phase 3 — Plan-only short-circuit
 If `--plan-only`: stop here. User reads `ai/audit/plan.md`. Re-run without flag to execute.
 
@@ -406,9 +416,9 @@ If `--plan-only`: stop here. User reads `ai/audit/plan.md`. Re-run without flag 
 So when `--plan` (the universal alias, per [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md)) is passed instead of `--plan-only`, this phase writes **both** artifacts before stopping:
 
 1. `ai/audit/plan.md` — unchanged; exactly what `--plan-only` has always produced.
-2. `.claude/plans/audit-<short-slug>-<YYYYMMDD-HHmm>.md` — the eight-header handoff: `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Constraints` / `## Steps` / `## Verification` / `## Status`, plus the Plan ID. The tier order P0→P4 becomes `## Steps`; every finding's cited `<file:line>` site becomes `## Outputs`; the tier rules ("P0 lands sequentially", "every ranked impact is measured or explicitly estimated", "no fix outside the ranked set") become `## Constraints`; the project's lint / typecheck / test commands plus each P0/P1 finding's named failure-mode check become `## Verification`; the 8 axis subfiles plus the idioms oracle become `## Inputs`.
+2. `.claude/plans/audit-<short-slug>-<YYYYMMDD-HHmm>.md` — the eight-header handoff: `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Constraints` / `## Steps` / `## Verification` / `## Status`, plus the Plan ID. The tier order P0→P4 becomes `## Steps`, except rows awaiting a pick, which are `## Known unknowns` (Phase 2c); every finding's cited `<file:line>` site becomes `## Outputs` (except rows awaiting a pick); the tier rules ("P0 lands sequentially", "every ranked impact is measured or explicitly estimated", "no fix outside the ranked set") become `## Constraints`; the project's lint / typecheck / test commands plus each P0/P1 finding's named failure-mode check become `## Verification`; the 8 axis subfiles plus the idioms oracle become `## Inputs`.
 
-Either spelling still stops here — no fix, no commit, no tier advance. What differs is only which executor can pick the run up: a re-run of this command for the ranked plan, `/execute-plan <file>` for the handoff file. Writing only the ranked plan under a universal-flag spelling is the defect this split exists to close — it advertised a handoff loop that could not complete.
+Either spelling still stops here — no fix, no commit except one `chore(decision)` commit of `ai/audit/decisions.md` by name, no tier advance. What differs is only which executor can pick the run up: a re-run of this command for the ranked plan, `/execute-plan <file>` for the handoff file. Writing only the ranked plan under a universal-flag spelling is the defect this split exists to close — it advertised a handoff loop that could not complete.
 
 ### Phase 3a — Assessment short-circuit (`--assess`)
 
@@ -497,7 +507,7 @@ never a guess.
 
 ### Phase 8 — Execute P4 (tactical cleanup, parallel waves)
 - Same closure verbs as `/optimize` Phase 2 — refactoring + dead code + dedup + over-abstraction.
-- After this phase, re-runs Phase 1 axis detectors one final time. Plan rows that re-detect clean → marked `verified`. Rows that re-detect → flipped `halted` and surfaced.
+- After this phase, re-runs Phase 1 axis detectors one final time. Plan rows that re-detect clean → marked `verified`. Rows that re-detect → flipped `halted` and surfaced, except rows marked `left as is — <date>` or `awaiting decision <key>`, which keep their mark.
 
 ### Phase 9 — Verify continuously
 - Lint + typecheck + scoped tests after EACH commit. Coverage must not drop.
@@ -505,7 +515,7 @@ never a guess.
 - For security fixes: regression assertion in same commit.
 
 ### Phase 10 — Self-resolve common questions
-- Closure verbs are mechanical. Agent doesn't ask permission per fix.
+- Closure verbs are mechanical. Agent doesn't ask permission per fix. A decision was asked once, in Phase 2c; nothing else is.
 - HALTS only on the failure modes below.
 
 ## Progress tracking (multi-day workflow)
@@ -515,7 +525,7 @@ Single source of truth: **`ai/audit/progress.md`**.
 ### How it works
 
 - **First run** → builds findings inventory + writes progress file. Executes P0 + P1 then pauses (high-blast tiers serial).
-- **Subsequent runs** → reads progress file, picks up at next pending tier OR module. Already-`done` findings skipped.
+- **Subsequent runs** → reads progress file and `ai/audit/decisions.md`, picks up at next pending tier OR module. Already-`done` findings skipped; a carded row runs only with its pick.
 - **`/audit --status`** → read-only progress; no work.
 
 ### Progress file shape
@@ -530,14 +540,16 @@ Targets: 50000 RPS, 200ms p95
 ## Summary
 - P0 scale-blockers:    3  (3 done, 0 pending)
 - P1 security/correct:  7  (7 done, 0 pending)
-- P2 scale fixes:      28  (12 done, 14 pending, 2 halted)
+- P2 scale fixes:      28  (12 done, 15 pending, 1 halted)
 - P3 architectural:     5  (0 done, 5 pending)
 - P4 tactical:        134  (0 done, 134 pending)
 
+## Awaiting decision
+- F-S-019: queue back-pressure on /webhooks/stripe — card `add-stream:/webhooks/stripe`
+  (ai/audit/decisions.md): 0. leave it · 1. bounded in-process queue · 2. Redis Streams (no
+  streaming primitive yet: the option builds it, with its ADR). Recommend 1.
+
 ## Halted findings
-- F-S-019: queue back-pressure on /webhooks/stripe
-  Reason: requires Redis Streams primitive — project has no streaming primitive.
-  Next: /setup-project --refine to add one, then re-run /audit --resume.
 
 - F-S-024: tenant pool partitioning
   Reason: cross-PR refactor (touches DB + service layer + ops manifest).
@@ -559,7 +571,7 @@ Day 3:  /audit --status              # check overall progress
 ```
 /audit the orders module             # specific area, skips ahead
 /audit --status                      # progress report only
-/audit --resume                      # pick up halted findings
+/audit --resume                      # pick up halted findings, then `awaiting decision` rows whose pick is in the store
 /audit --reset F-S-019               # re-detect a specific finding
 /audit --refresh                     # RE-SCAN codebase, MERGE into existing plan
                                      #   - new findings appended as pending
@@ -568,6 +580,7 @@ Day 3:  /audit --status              # check overall progress
 /audit --re-audit                    # IGNORE cached verdicts; re-detect all axes
                                      #   - rows that re-verify clean stay verified
                                      #   - rows that re-detect → halted, re-fix in same run
+                                     #     (not rows `left as is` or `awaiting decision`)
 /audit --restart                     # wipe progress, start over (commits NOT reverted)
 /audit --ignore-ledger               # truly fresh scan (re-runs all 8 axes from scratch)
 ```
@@ -961,11 +974,12 @@ Applied silently per the discipline:
 - **Cross-axis ranker enforced.** *(Mechanical.)* Plan ordered by `impact-at-target-rps × blast-radius × fix-cost`, NOT by axis. A "fix all security first then all DB then all perf" order is rejected — that's just running 5 separate audits sequentially.
 - **No hand-waves in plan.** *(Mechanical — `validate-audit-artifacts.sh § check_no_handwaves_audit_plan`.)* Greps `etc.`, `...`, `&...`, `N+ items`, `would be slow`, `at scale this is bad`. Every finding has a citation + measured-or-estimated impact.
 - **Foundation-first within tier.** *(Agent-side.)* P3 architectural fixes land before P4 tactical. P3 may dissolve dozens of P4 findings.
+- **A decision is the person's.** *(Agent-side; step 3.5.)* A row that [`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 1 gates, with its exemptions, is built only after its decision card was picked (Phase 2c). The first idea is not the decision, and the more sophisticated option is not the better one.
 - **Behaviour preserved** for architectural / refactoring / dead-code / dedup. Perf/scale/security fixes ship with assertions OR measurements.
 - **One commit per finding** (P0, P1, P2, P3, P4). Multi-finding commits hide regressions.
 - **Closure verbs from a closed vocabulary.** No new abstractions invented; `introduce-abstraction` only when ≥3 sites duplicate the same shape.
 - **Re-detect after each tier.** Gap-count parity (`gaps_in == gaps_closed`) before the tier advances.
-- **Halts on**: idiom missing (e.g., scale fix needs Redis but project has no cache primitive); cross-PR decoupling required; behaviour change risk; infra change beyond mechanical (surfaces ops ticket).
+- **Halts on**: cross-PR decoupling required; behaviour change risk; infra change beyond mechanical (surfaces ops ticket). A primitive the project lacks is a Phase 2c decision, never a halt.
 - **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` close every run summary — name what did NOT run (or `none — <what fully ran>`), residual risks (or `none identified`), and the exact revert command for this run's commit range. `Tests: N/N passing` alone hides the negative space — the same Trusted Summary failure mode. `/audit` executes P0–P4 commits, so the clause is non-negotiable: load tests, prod-sized data, and unavailable environments that the scale/perf wins could not exercise MUST be named.
 
 User sees the result, not the policing.

@@ -96,6 +96,8 @@ input paths, the mode or lens, the return shape — never your narrative, never 
    it is not T0: open a run at T1 and continue.
 5. **Open the run (T1+)** — or, with `--resume=<run-id>` (from `/task`, or from a plan's last Step),
    do not: continue that run in its worktree at the phase after the one `run.json` stopped at.
+   Under `/task`, first copy `brief.md` from `record=` into the run folder again and move any pick
+   in it into `decision.md`, so the phase that raised a card finds it picked.
    After `/execute-plan`, the plan's last Step set `phase: P6 done`, so the run continues at P7. If
    the plan's re-tier promoted the tier, it continues instead at the first phase the promotion
    re-opened, as `run.json` records it, and back-fills it before P7.
@@ -140,7 +142,10 @@ input paths, the mode or lens, the return shape — never your narrative, never 
 
    **No open question is ever answered by an assumption.** A question that appears after the
    brief, in any phase, stops the run with `NEEDS_INPUT` and goes back to the person. Under
-   `/task`, the card stops and waits.
+   `/task`, the card stops and waits. When `@architect`'s `NEEDS_INPUT` is a decision card
+   (`decide-before-change.md`), you write the card to `ai/runs/<run-id>/decision.md`, read first
+   so nothing decided is asked again, and add the person's pick beside it; under `/task`, the pick
+   also goes into `brief.md`. H2 shows it, and P12 carries it into the record's `design.md`.
 
 **Phases by tier** (`tiers.json`; ✓ runs, L = lite, – skipped with `covered_by: tier T<n>`):
 
@@ -236,6 +241,7 @@ per new primitive or dependency. Then:
    Requirements: <stories · criteria · unchanged · out of scope>          requirements.md
    Constraints:  <each binding constraint + how the design satisfies it>   design.md § Constraints
    Design:       <components · interfaces · data model · failure modes>   design.md
+   Decisions:    <each decision card and the option picked, or none>      decision.md (brief.md under /task)
    Contract:     <N> criteria (EARS), tests written and red; <k> holdouts  acceptance.json
    Baseline:     <n> entries captured @<base-sha>; <d> declared changes     .claude/baselines/<base-sha>/
    Plan:         <tasks by lane>                                           plan.md
@@ -334,7 +340,8 @@ cap at `THR-LOOP.review_rounds_max`; a fix re-runs only the lens that found it.
    `brief.md` and `study.md` already in it, and `/task` writes the index line. A direct run copies
    both from `ai/runs/<run-id>/` and writes the index line itself. This command writes:
    - `design.md` — from `design.md` and `ux.md` at T2/T3, from `plan.md` at T1: components, API
-     endpoints, data changes and screens, and why this shape;
+     endpoints, data changes and screens, and why this shape, with each decision card from
+     `decision.md` and the option picked;
    - `acceptance.md` — the acceptance criteria.
 
    The PR body links the folder. The run folder lives in the worktree and goes with it; the

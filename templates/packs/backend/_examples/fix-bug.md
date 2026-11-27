@@ -24,7 +24,7 @@ Bugs are undersold in reports. This flow prevents "fixed" bugs from reappearing 
 > - `ai/runs/<run-id>/verdict.json` (the verifier);
 > - the record folder (Phase 5).
 >
-> Do not study or ask again. When the run folder is not there (another machine), start over at Phase 1's first bullet, "Open the run here", with the approved brief. The worktree `/task` cut holds no WIP code (it lives only on `wip/<branch>`), so the new test fails before any fix.
+> Do not study or ask again. Under `/task`, first copy `brief.md` from `record=` into the run folder again and move any pick in it into `decision.md`, so `### Minimal fix` finds the card picked. When the run folder is not there (another machine), start over at Phase 1's first bullet, "Open the run here", with the approved brief. The worktree `/task` cut holds no WIP code (it lives only on `wip/<branch>`), so the new test fails before any fix.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -278,7 +278,7 @@ Requirements:
 - Change only what's needed to make the test pass.
 - No incidental cleanup / refactor. File separately.
 - Match existing code style exactly.
-- **No new dependency without a gate.** If the minimal fix appears to need a package the project doesn't already use, STOP — a bug fix that grows the dependency tree is almost always the wrong shape. Re-confirm the root cause can't be fixed with an existing primitive / stdlib; if the dep is genuinely required, run a dependency review (dispatch `security-auditor`: maintenance / license / size / supply-chain; not installed → record those facts with the command that produced each and report `UNREVIEWED(dependency)`, INCOMPLETE) and record it in the PR (or an ADR for a security / data-handling dep).
+- **No new dependency without a gate.** If the minimal fix appears to need a package the project doesn't already use, STOP — a bug fix that grows the dependency tree is almost always the wrong shape. Re-confirm the root cause can't be fixed with an existing primitive / stdlib; if the dep is genuinely required, run a dependency review (dispatch `security-auditor`: maintenance / license / size / supply-chain; not installed → record those facts with the command that produced each and report `UNREVIEWED(dependency)`, INCOMPLETE) and record it in the PR and an ADR (`decide-before-change.md` § 9: a dependency is a moving part). The choice is put as a decision card first (`.claude/templates/snippets/decide-before-change.md`), and so is anything else the project does not run today (a store, a queue, a cache, a scheduled job): the existing primitive first, the dependency review in the risks, no "leave it" option. The card and the person's pick go to `ai/runs/<run-id>/decision.md`.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 

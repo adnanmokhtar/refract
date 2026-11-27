@@ -24,9 +24,9 @@ All 7. Phase 4 = the design doc + ADRs (no code generation here).
 ## Phase 2 — Organize
 
 - Sub-tasks: context diagram, data ownership table, communication matrix, failure-mode matrix, consistency model, SLO contract, capacity model + bottleneck ledger + scaling plan, ADRs, rollout plan.
-- Sequence: architect first (the boundaries), then capacity-planner (the numbers — estimation, bottleneck, scaling axis, migration cutover), then resilience-reviewer (the failure modes), then ADR authoring.
-- Pause after architect's draft — user confirms before the capacity + resilience passes.
-- **Scope gate**: If the design has ≤2 services and no cross-region/event-sourcing/saga concerns, run `system-architect` only and skip `resilience-reviewer` + auto-ADR. Promote to full chain only when the architect flags ≥1 distributed-systems risk (network partition, exactly-once requirement, eventual-consistency window).
+- Sequence: capacity-planner first (the numbers — estimation, bottleneck, scaling axis, migration cutover; Phase 3.5), then the decision card, then system-architect (the boundaries, for the option picked), then resilience-reviewer (the failure modes), then ADR authoring.
+- Pause once, after the capacity model: the person picks an option on the decision card (Phase 3.5) before `system-architect` draws (Phase 4) and before the resilience pass.
+- **Scope gate**: If the design has ≤2 services and no cross-region/event-sourcing/saga concerns, skip `resilience-reviewer` + auto-ADR (capacity-planner and the decision card still run: they price the options). Promote to full chain only when the architect flags ≥1 distributed-systems risk (network partition, exactly-once requirement, eventual-consistency window).
 
 ## Phase 3 — Retrieve
 
@@ -55,7 +55,9 @@ Before any boundary is committed, dispatch `@capacity-planner` with the scale ta
 3. **Scaling strategy** — the scale axis (vertical → horizontal-stateless → read replicas → shard/partition), cross-linked to `ai/patterns/sharding-partitioning.md` + `ai/patterns/backpressure.md`.
 4. **Migration cutover** — if the design reshapes data at scale: dual-write → backfill in batches → shadow-read compare → expand-contract → flip.
 
-Halt-forward: if the design "won't fit on one box" but the boundary assumes it will, or a capacity claim has no number behind it, capacity-planner halts the design here — the architect reworks before Generate.
+Halt-forward: if the design "won't fit on one box" but the boundary assumes it will, or a capacity claim has no number behind it, capacity-planner halts the design here — the boundary assumption is corrected and the card's options re-priced before Generate.
+
+**Decide before Generate** ([`decide-before-change.md`](../../../snippets/decide-before-change.md)). A distributed design is not the default answer to a scale question. The card's problem is the Phase 1 numbers: what the system does today against what it must do. Its biggest costs are the bottleneck ledger's binding constraints. Its options are leaving the current shape, the simplest change inside what already runs (a vertical step, a read replica, an index, a job queue the project has), and the distributed design, priced from capacity-planner's scaling strategy (item 3) since nothing is drawn yet. Each carries its cost (new services, stores and brokers to run and watch, the monthly cost, the cutover), its gain at 1x, 10x and 100x, its risks and its undo. The card also names what the design delays. Generate draws only the option picked. A pick that needs no new boundary ends here, and the card is written to `specs/<YYYYMMDD>-<slug>.md` as the record; a later run on the same feature reads it first.
 
 ## Phase 4 — Generate
 
@@ -77,7 +79,7 @@ Phased rollout plan: which service ships first, behind which flag, with what dua
 
 ## Phase 5 — Update
 
-- `specs/<YYYYMMDD>-<slug>.md` — the design doc.
+- `specs/<YYYYMMDD>-<slug>.md` — the design doc, opening with the decision card and the option picked.
 - `ai/decisions/` — append the ADRs (status: Proposed).
 - `ai/architecture.md` — append a forward-reference to the new design.
 - `ai/status.md` — Recent Changes entry.

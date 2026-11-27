@@ -9,6 +9,18 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-11-27
+
+**Decide before you change.** `/infra-fix` now puts a stop that is a choice as a decision card
+(`templates/snippets/decide-before-change.md`). That covers a capacity increase, a new managed
+service or store, and multi-AZ. A stateful replacement or a deletion stays put as the change.
+- **The card shows:**
+  - the measured need;
+  - the options: a setting on what already runs first, then the bigger move, and leaving it
+    unless the finding is a security, data-loss or correctness defect;
+  - the monthly cost from the quantity arithmetic, what it delays, the risks, and a
+    recommendation.
+
 ## 2.0.5 — 2026-10-19
 
 - **`/k8s-generate` and `/provision-tier` dispatch `@platform-engineer`** *(devops pack)* for Phase 4 when the devops pack is installed. Inside a run it is the one writer of manifests and IaC. Without devops: `HANDOFF UNROUTED (devops not installed)`, and the main session writes, as before.

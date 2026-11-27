@@ -16,7 +16,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 > - `ai/runs/<run-id>/verdict.json` (the verifier);
 > - the record folder (Phase 5).
 >
-> Do not study or ask again. When the run folder is not there (another machine), start over at Phase 1's first bullet, "Open the run here", with the approved brief. The worktree `/task` cut holds no WIP code (it lives only on `wip/<branch>`), so the new test fails before any fix.
+> Do not study or ask again. Under `/task`, first copy `brief.md` from `record=` into the run folder again and move any pick in it into `decision.md`, so 4d finds the card picked. When the run folder is not there (another machine), start over at Phase 1's first bullet, "Open the run here", with the approved brief. The worktree `/task` cut holds no WIP code (it lives only on `wip/<branch>`), so the new test fails before any fix.
 >
 > **`--fast`** (emergency hotfix): production is broken and the fix must ship now. Branches from the **production/default** branch, makes the smallest correct change, writes **one** critical-path regression test (not the full class), opens a `[HOTFIX]` PR, and files a follow-up for full coverage + backport. See "§ `--fast` — emergency hotfix mode" below. `--fast` and `--plan` are mutually exclusive (planning is not an emergency posture).
 
@@ -275,7 +275,7 @@ The fix should be:
 - **Reversible** — safe to revert if the fix has unintended consequences.
 - **Anchored** to existing conventions (don't introduce new patterns to fix one bug).
 
-If the fix requires a new pattern → flag for ADR before merging.
+If the fix needs something the project does not run today (a dependency, a store, a queue, a cache, a scheduled job) or a new pattern, stop and show a decision card first (`.claude/templates/snippets/decide-before-change.md`): the ways to fix it, the existing primitive first, with no "leave it" option, since a bug is fixed. The card and the person's pick go to `ai/runs/<run-id>/decision.md`, and the pick gets an ADR before merging.
 
 ### 4e. Verify
 

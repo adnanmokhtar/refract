@@ -23,8 +23,8 @@ All 7. Phase 4 = the design doc + ADRs (no code generation here).
 ## Phase 2 — Organize
 
 - Sub-tasks: context diagram, data ownership table, communication matrix, failure-mode matrix, consistency model, SLO contract, ADRs, rollout plan.
-- Sequence: architect first (the boundaries), then capacity-planner (the numbers), then resilience-reviewer (the failure modes), then `event-sourcing-architect` **if** any aggregate is event-sourced, then ADR authoring.
-- Pause after architect's draft — user confirms before the capacity + resilience passes.
+- Sequence: capacity-planner first (the numbers), then the decision card (`decide-before-change.md`: leaving the current shape, the simplest change inside what runs, the distributed design), then the architect (the boundaries, for the option picked), then resilience-reviewer (the failure modes), then `event-sourcing-architect` **if** any aggregate is event-sourced, then ADR authoring.
+- Pause once, after the capacity model — the person picks an option on the card before the architect draws.
 
 ## Phase 3 — Retrieve
 
@@ -53,7 +53,9 @@ Before any boundary is committed, dispatch `@capacity-planner` with the scale ta
 3. **Scaling strategy** — the scale axis (vertical → horizontal-stateless → read replicas → shard/partition), cross-linked to `ai/patterns/sharding-partitioning.md` + `ai/patterns/backpressure.md`.
 4. **Migration cutover** — if the design reshapes data at scale: dual-write → backfill in batches → shadow-read compare → expand-contract → flip.
 
-Halt-forward: if the design "won't fit on one box" but the boundary assumes it will, or a capacity claim has no number behind it, capacity-planner halts the design here — the architect reworks before Generate.
+Halt-forward: if the design "won't fit on one box" but the boundary assumes it will, or a capacity claim has no number behind it, capacity-planner halts the design here — the boundary assumption is corrected and the card's options re-priced before Generate.
+
+**Decide before Generate** (`decide-before-change.md`). The card's problem is the Phase 1 numbers, its biggest costs the bottleneck ledger. Its options are leaving the current shape, the simplest change inside what already runs, and the distributed design priced from the scaling strategy. Generate draws only the option picked.
 
 ## Phase 4 — Generate
 
@@ -75,7 +77,7 @@ Phased rollout plan: which service ships first, behind which flag, with what dua
 
 ## Phase 5 — Update
 
-- `specs/<YYYYMMDD>-<slug>.md` — the design doc.
+- `specs/<YYYYMMDD>-<slug>.md` — the design doc, opening with the decision card and the option picked.
 - `ai/decisions/` — append the ADRs (status: Proposed).
 - `ai/architecture.md` — append a forward-reference to the new design.
 - `ai/status.md` — Recent Changes entry.

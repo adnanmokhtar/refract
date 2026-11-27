@@ -24,6 +24,8 @@ The boundary, stated once: **not** `/optimize` — no Phase 0 architectural diag
 
 **Behaviour-preserving is mandatory.** Observable outputs unchanged; public API shape unchanged unless the user explicitly accepts a breaking refactor + ADR (then it is no longer a pure `/refactor` — halt and split the PR).
 
+**No decision card here.** The target is the person's (named, or their own current changes), and the 10 verbs add no moving part, so the choice is already made ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 1). A move outside them goes to `/optimize`, which shows a card for it when it is a foundation move (`/optimize` step 1.7).
+
 ## Closure verbs (closed vocabulary)
 
 Only these verbs may appear in `ai/refactor/ledger.md` as `closure_verb:` (same set as `refactoring-sweep`):

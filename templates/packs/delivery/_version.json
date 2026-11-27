@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "delivery",
-  "version": "1.5.0",
-  "released": "2026-11-26",
+  "version": "1.6.0",
+  "released": "2026-11-27",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/add-feature studies and briefs before P1 (study-before-build.md): a person running it directly approves a plain brief first, an open question is never assumed, a changed business rule updates ai/business-rules.md + history, and the PR body is the design record.",
+  "summary": "@architect returns a decision card when a design needs something the project does not run today and the brief did not pick it; /add-feature stores the card and the pick in decision.md, H2 shows them, and the record and the ADR carry them, leaving it included.",
   "changelog": "CHANGELOG.md"
 }

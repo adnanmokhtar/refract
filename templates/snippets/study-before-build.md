@@ -22,7 +22,7 @@ Used by:
   header:
 
   ```
-  card · origin list · status: awaiting answers | awaiting approval | approved | parked at <gate|question>
+  card · origin list · status: awaiting answers | awaiting approval | approved | parked at <gate|question|decision>
   approved by <who> <date> (said OK | answers added no work) · gates: <H1/H2 approved by who, date>
   run: <run-id> · worktree: <path>        (only while a build is in progress or parked)
   ```
@@ -42,7 +42,9 @@ Used by:
   source of truth; this folder is a cache.** When `brief.md` is missing (another machine, a
   teammate), rebuild it from the card's `/task` comments. The latest Plan comment is the brief,
   the Answer comments are its answers, a ✓ comment is the approval, a Gate comment is a gate
-  approval, and the Plan comment's first line names the origin list. `study.md` is not on the card:
+  approval, and the Plan comment's first line names the origin list. A park comment's decision
+  cards go into the rebuilt brief under their keys, and an Answer comment that names a card's key
+  is its pick (`decide-before-change.md` § 8). `study.md` is not on the card:
   when it is missing, the study is re-run alone, asking nothing new unless it finds something the
   approved brief did not cover.
 - **A direct run** (`/add-feature`, `/fix-bug`): `ai/runs/<run-id>/brief.md` and `study.md`. The
@@ -125,6 +127,13 @@ Questions:    1. … (options)        (none → "none")
 
 A small task (one label, one condition) keeps `Problem`, `We will` and `Questions`, and drops the
 rest.
+
+**An improvement task** carries its decision card in the brief, after `We will`
+(`decide-before-change.md` § 8). That covers performance, refactor, scale, database, architecture
+and a new technology, and any task whose solution needs something the project does not run today.
+Which option to take is one of the brief's questions, and the brief's approval approves the card.
+Under `--yes`, a recommendation that adds no moving part and is not one-way is not an open question
+(`decide-before-change.md` § 8).
 
 ## 7. Answers and approval
 - **Answers go into `brief.md`**: each question gets its answer, who gave it, and when. The brief's

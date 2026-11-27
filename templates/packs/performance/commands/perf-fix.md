@@ -37,6 +37,8 @@ Two claims, two proofs ([`proof-oracles.md § The core rule: existence by invari
 - **A concurrency-semantics change:** fail-fast vs settle-all error behaviour, an ordering guarantee, at-least-once vs at-most-once.
 - **A new dependency** (a limiter, worker pool or batch loader): only after an existing primitive is ruled out.
 
+**How a stop that is a choice is put.** A cache, a capacity or pool value, a new store or service, or a new dependency is put as a decision card ([`decide-before-change.md`](../../../snippets/decide-before-change.md)). It shows the finding's measured impact and its share of the path's cost, and the options: the in-code primitive first, the bigger move, and leaving it (a performance finding keeps that option even when MUST FIX). Then cost against gain, what it delays, the risks, and a recommendation. The card and the pick go to `ai/dynamic/decisions-pending.md` under the card's key, read before raising a card, since the next audit renumbers its findings; the closure-table row cites it (`decision: <key> → <pick>`). A pick given in the session is built in this run. A finding still waiting stays `awaiting decision` while the rest of the list proceeds, and the next run, on any report, builds the pick it finds by key, reading the brief too under `/task`. In a dispatched run the cards come back as `NEEDS_INPUT` (`decide-before-change.md` § 8–9). A data-model change is not carded here: `/db-fix` shows its card, or, without the database pack, it is written as a proposal with its options. A contract or concurrency-semantics stop is put as the change and who it breaks.
+
 This command inherits the two invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md): **failing test first** and the **sibling ledger** `N_found == N_fixed + N_explained + N_followup`. Here the failing test is an **oracle** from [`proof-oracles.md`](../../../snippets/proof-oracles.md), and the sibling sweep greps the **class**.
 
 ## Phases applied
@@ -47,7 +49,7 @@ All seven. Phase 4 is the per-finding loop; Phase 6 carries the production-grade
 - NOT: with no report and no confirmed finding (run `/perf-audit`). Not for one slow path with no audit (`/profile-perf`), database rows while the database pack is installed (`/db-fix`), or a cache-key identity row while the security pack is installed (`/security-fix`).
 
 ## `--plan`
-Accepts `--plan` (alias `--plan-only`; see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)). With the flag set, run Phases 1–3 read-only, then write one entry per finding — its class, the oracle test to write with its variants and sizes, the root primitive, the guardrails, any STOP line it crosses — to `.claude/plans/perf-fix-<short-slug>-<YYYYMMDD-HHmm>.md`, print the path, and exit before Phase 4. **Write no test and no code, and touch `ai/` not at all.** A plan never carries a projected speed-up as a result.
+Accepts `--plan` (alias `--plan-only`; see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)). With the flag set, run Phases 1–3 read-only, then write one entry per finding — its class, the oracle test to write with its variants and sizes, the root primitive, the guardrails, any STOP line it crosses; a stop that is a choice and was not picked before the plan is written goes under `## Known unknowns` as its card, never a step — to `.claude/plans/perf-fix-<short-slug>-<YYYYMMDD-HHmm>.md`, print the path, and exit before Phase 4. **Write no test and no code, and touch `ai/` only to record a pick given before the plan in `ai/dynamic/decisions-pending.md`.** A plan never carries a projected speed-up as a result.
 
 ## Phase 1 — Understand
 
@@ -164,7 +166,7 @@ Read the convention first (recent `git log` subjects, a protected or PR-only bra
 |---------|----------------|--------------------|------------------------------------|------------|-----------------------------------|---------------------|-----------|
 | P-03    | client/call    | socket count (V30) | test/checkout.socket-count.spec.ts | fail→green | pool waits NO-CHANGE              | <sha> perf          | quiet     |
 | P-05    | fan-out        | max in-flight      | test/cart.max-inflight.spec.ts     | fail→green | downstream 429s <n>→<n>           | staged (PR-only)    | quiet     |
-| P-08    | stampede       | 1 origin call      | probe recorded                     | fail       | —                                 | escalated: STOP TTL | —         |
+| P-08    | stampede       | 1 origin call      | test/catalog.single-flight.spec.ts | fail→green | origin calls per expiry <n>→1     | <sha> perf          | quiet     |
 ```
 A finding with no proof row, or with a RE-DETECT that is not `quiet`, is **not** closed.
 
@@ -204,7 +206,7 @@ Order:  MUST FIX (<c>) → SHOULD FIX (<m>) → OPTIONAL (<l>)
 Closure table: (Phase 5 — one row per finding)
 Production-grade table: (Phase 6 — one row per applied finding)
 Escalated (STOP — decision owed):
-  - P-08  stampede on the catalog key: single-flight is safe, but the fix needs a <n> s stale-while-revalidate window — approve the freshness contract?
+  - P-08  closed with single-flight (the root primitive, no card); card `add-swr:catalog`: 0. leave it (single-flight alone; origin p95 at expiry <x>) · 1. add a <n> s stale-while-revalidate window (the freshness contract changes) — recommend 0, revisit when origin p95 at expiry passes its budget
 Re-audit: /perf-audit on touched scope → verdict <was → now>, no regression
 Status: PRODUCTION-GRADE | INCOMPLETE — <unmet items named>
 ```

@@ -35,6 +35,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 - **An isolation-level change, or production pool and timeout values.** The agent shows the arithmetic; the values are the user's call.
 - **Denormalisation, a materialised view, partitioning** (each needs an ADR), or **introducing a cache** (`@caching-architect`, performance pack, when installed).
 
+**How a stop that is a choice is put.** An index without a measured `WORTH IT` verdict, a migration on a populated table that a rewrite could avoid, denormalisation, a materialised view, partitioning, a cache, or a pool value is put as a decision card ([`decide-before-change.md`](../../../snippets/decide-before-change.md)). It shows the measured cost (the plan, the slow-query row, its share of the database's time), and the options: the query rewrite or the existing index first, the bigger move, and leaving it unless the finding is a security, data-loss or correctness defect. Then cost against gain (the lock budget and the backfill time count as cost), what it delays, the risks, and a recommendation. The card's options become the ADR's alternatives. The card and the pick go to `ai/dynamic/decisions-pending.md` under the card's key, read before raising a card, since the next audit renumbers its findings; the closure-table row cites it (`decision: <key> → <pick>`). A pick given in the session is built in this run. A finding still waiting stays `awaiting decision` while the rest of the list proceeds, and the next run, on any report, builds the pick it finds by key, reading the brief too under `/task`. In a dispatched run the cards come back as `NEEDS_INPUT` (`decide-before-change.md` § 8–9). An index with a `WORTH IT` verdict, a destructive or irreversible stop, and a data correction are put as the change, its rehearsal and its rollback.
+
 This command inherits the two invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md): **failing test first** and the **sibling ledger** `N_found == N_fixed + N_explained + N_followup`. Here the failing test is an **oracle** from [`proof-oracles.md`](../../../snippets/proof-oracles.md), and the sibling sweep greps the **class**.
 
 ## Phases applied
@@ -165,7 +167,7 @@ Read the convention first: recent `git log` subjects, a protected or PR-only bra
 |---------|-----------------|---------------------|---------------------------------------|--------------|------------------------|---------------------------|-----------|
 | D-02    | query per elem. | query-count scaling | test/orders/list.query-count.e2e.ts   | fail→green   | rows ×1 (plan)         | <sha> fix(db)             | quiet     |
 | D-05    | I/O in tx       | fault injection     | test/payouts/payout.outbox.spec.ts    | fail→green   | 1 publish, post-commit | staged (PR-only)          | quiet     |
-| D-07    | FK w/o index    | plan shape          | probe recorded (seeded copy, 2M rows) | fail (proof) | —                      | escalated: STOP populated | —         |
+| D-07    | FK w/o index    | plan shape          | probe recorded (seeded copy, 2M rows) | fail (proof) | —                      | awaiting decision (card) | —         |
 ```
 A finding with no proof row, or with a RE-DETECT that is not `quiet`, is **not** closed.
 
@@ -186,7 +188,7 @@ Input:  ai/audits/<date>-db.md  (findings: <total>; routed to /security-fix: <s>
 Order:  MUST FIX (<c>) → SHOULD FIX (<m>) → OPTIONAL (<l>)
 Closure table: (Phase 5 — one row per finding)
 Escalated (STOP — decision owed):
-  - D-07  index on order_items(order_id), 41M rows — rehearsal: 3 min online build, write p95 inside the noise band; approve?
+  - D-07  index on order_items(order_id), 41M rows — card `add-index:order_items(order_id)` awaiting decision: 0. leave it (order list p95 <x>) · 1. the index (rehearsal: 3 min online build, write p95 inside the noise band; quick win) — recommend 1
   - D-09  products.price double precision → integer minor units — needs a backfill and an expand/contract swap
 Re-audit: /db-audit on touched scope → verdict <was → now>, no regression
 Status: COMPLETE | INCOMPLETE  (COMPLETE only when every MUST-FIX finding is closed or escalated and the re-audit did not regress)

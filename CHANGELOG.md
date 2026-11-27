@@ -6,6 +6,89 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Decide before you change — evidence, options, then the person's OK (2026-11-27)
+
+Before this, the first solution that came to mind was usually the one built:
+- `/optimize` applied architectural moves without asking;
+- `/audit` inserted caches and breakers "where safe";
+- the stop lines asked the person "yes or no?" about one proposal.
+
+Nothing compared that proposal with leaving it as it is, priced it, or named what it delayed:
+"opportunity cost" and "cost-benefit" appeared in no command.
+
+- **`templates/snippets/decide-before-change.md`** (new; also in the repo baseline) — the decision
+  every improvement goes through before code. That covers performance, refactor, scale, database,
+  architecture and a new technology. The decision card holds:
+  1. the measured problem, its source, and the target it misses — no number, measure first;
+  2. where the cost is, the biggest first;
+  3. two or three options, leaving it always one, each with cost (effort, new moving parts, monthly
+     cost), gain (measured, or estimated with its terms), risks, undo and return;
+  4. one label per option: quick win, major project, fill-in or money pit;
+  5. what it delays;
+  6. a recommendation with when to revisit it — on a tie the simpler option wins, and leaving it
+     wins a tie with anything that adds a moving part.
+
+  Then the person picks an option. After the build, the same probe runs again.
+
+  The rules that hold everywhere:
+  - **Leaving it** is dropped only when there is nothing to leave: a security, data-loss or
+    correctness defect, a new project, or the how of a feature already approved. A performance or
+    capacity finding keeps it, even when MUST FIX, and so does any other scale-blocker at a target
+    the project has not reached.
+  - **Each command has one store for its cards and picks.** It reads the store before asking, and
+    under `/task` the brief too, so nothing decided is asked again unless its revisit trigger
+    fired. `/upgrade-dep`, `/optimize-query` and the pack fixers use `ai/dynamic/decisions-pending.md`,
+    keyed `<change>:<target>`, so a pick outlives the audit report that raised it. A read-only
+    report lists a decided finding as decided.
+  - **A dispatched run decides nothing new.** That covers a `/task` drain or any dispatch with an
+    approved brief. It builds what needs no card and holds out the work a pending pick would
+    change. It returns the cards as `NEEDS_INPUT`; `/task` asks the person, or parks the card.
+  - **A pick that needs a primitive the project lacks** (a cache client, a queue, a store) builds
+    it as part of the option, with its ADR. `/setup-project --refine` afterwards declares it as an
+    idiom.
+  - **A plan file never makes an unpicked card a step.** An unpicked card goes under
+    `## Known unknowns` as `Decide first:`, never an Output, with the work it holds, and
+    `/execute-plan` never resolves it. A pick given before the plan is written goes to the command's store.
+- **`think-simplify-surgical.md`** (always-on rule): "surface tradeoffs" now says an improvement
+  that adds a moving part, changes data at scale, moves responsibilities or raises cost waits for
+  its card. It applies whether or not a command is running. Baseline: ~5988 of 6000 tokens.
+- **`/optimize`** shows cards in two rounds:
+  1. for the foundation moves, before the first edit;
+  2. after the wave, for what the scan found that adds a moving part.
+
+  Tactical, mechanical fixes stay silent. Cards and picks live in `ai/optimize/decisions.md`.
+- **`/audit`:**
+  - A new Phase 2c, summarised as step 3.5, turns the rows the snippet gates into cards and waits
+    once. The picks go to `ai/audit/decisions.md`.
+  - Phases 4–8, later runs of the multi-day flow, `--refresh` and `--re-audit` read the picks from
+    that file.
+  - `--plan-only` and `--plan` show the cards before the plan; an unpicked row reads
+    `Decide first:`. `--assess` writes decisions that way in its narrative.
+- **`/upgrade-dep` 1.1.0:** a major or a runtime upgrade shows a card once the guide says what it
+  costs. The options are to stay, to take the newest version inside the current major, or to take
+  the named major.
+- **`/refactor`** says why it needs no card. **`/scaffold-project`** prices each stack per month and
+  says how hard it is to leave later.
+- **The stop lines** become cards:
+  - `/perf-fix` (performance 2.4.0);
+  - `/db-fix` and `/optimize-query` (database 2.4.0);
+  - `/ds-fix` and `/design-system` (distributed-systems 2.1.0);
+  - `/infra-fix` (infrastructure 2.1.0).
+- **`@architect`** (delivery 1.6.0) returns a card when a design needs something the project does
+  not run today. `/add-feature` stores it in `decision.md`, H2 shows it, and the record keeps it.
+- **`/fix-bug`** (baseline, backend 2.4.0) shows a card when a fix needs something the project
+  does not run today, with no "leave it" option.
+- **`/task` 1.9.0** parks a card whose routed command comes back with decision cards (`parked at
+  decision`). The pick goes into the brief, under the card's key (`<change>:<target>`, the same in every run),
+  and into that command's store.
+  The next dispatch builds it without asking again, on another machine too.
+- **`study-before-build.md`:** an improvement task's brief carries its card.
+- **`plan-flag.md`:** a plan embeds the picked option.
+- **`review-action-plan.md`:** a read-only report marks a decision `Decide first:` instead of a
+  settled fix.
+- **The ADR template** opens with the evidence, lists what the decision delays, and has option 0:
+  leave it as it is.
+
 ### Understand first, then build — study, brief, business rules (2026-11-26)
 
 Measured on 40 real cards: 8 asked their questions after the build, 6 of those were reworked, 2 missed

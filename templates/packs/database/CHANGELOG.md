@@ -9,6 +9,25 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.0 — 2026-11-27
+
+**Decide before you change** (`templates/snippets/decide-before-change.md`).
+- **`/db-fix`:** a stop that is a choice is put as a decision card. That covers an index without a
+  measured `WORTH IT` verdict, a migration on a populated table that a rewrite could avoid,
+  denormalisation, a materialised view, partitioning, a cache and a pool value.
+  - **The card shows** the measured cost and the options: the rewrite or existing index first,
+    the bigger move, and leaving it unless the finding is a security, data-loss or correctness
+    defect.
+  - **An index with a measured `WORTH IT` verdict** is put as the change, as before.
+  - **The pick is stored** in `ai/dynamic/decisions-pending.md` under the card's key, so it
+    outlives the report; the closure-table row cites it (`awaiting decision` until it comes).
+  - **The cost** includes the lock budget and the backfill time.
+  - **The ADR:** the card's options become its alternatives.
+- **`/optimize-query`:** its questions (denormalisation, a view, a rarely-called
+  query) are asked with a card. An index fix needs none: its measured worth-it verdict is the
+  index's cost-benefit. `NOT WORTH IT` recommends leaving it; `UNJUSTIFIED` recommends measuring
+  first. Its cards go to `ai/dynamic/decisions-pending.md`.
+
 ## 2.3.0 — 2026-10-18
 
 - **`schema-map.py --lane=laravel`** (self-test 39/39): reads Blueprint `Schema::create/table/drop/rename`, every `$table->` type and modifier, `foreignId()->constrained()` (inferred targets counted), on-delete/update helpers, softDeletes, timestamps, morphs, `DB::statement` SQL and a `schema:dump`; enums become a CHECK like the snapshot lane. Chosen automatically when there is no snapshot and the `.php` migrations call `Schema::`.

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "distributed-systems",
-  "version": "2.0.1",
-  "released": "2026-10-14",
+  "version": "2.1.0",
+  "released": "2026-11-27",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Six detectors with oracles (messaging, dual write, retries and deadlines, locks and clocks, workflows, event contracts), ds-inventory.py, /ds-audit and /ds-fix, three judges; broker-semantics defaults, precedents and V291–V327; chaos-test never touches the default context.",
+  "summary": "/design-system decides before it draws: a decision card weighs leaving the current shape and the simplest change inside what runs against the distributed option, priced from the capacity model; /ds-fix puts an outbox, a lock store or a new broker, queue or stream as a card.",
   "changelog": "CHANGELOG.md"
 }

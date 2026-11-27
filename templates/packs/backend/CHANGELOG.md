@@ -9,6 +9,15 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.0 — 2026-11-27
+
+**Decide before you change.** `/fix-bug` puts a fix that needs something the project does
+not run today on a decision card (`templates/snippets/decide-before-change.md`) before it is
+built. That covers a dependency, a store, a queue, a cache or a scheduled job.
+- **The card shows** the existing primitive first, with the dependency review in its risks.
+- **There is no "leave it" option:** a bug is fixed.
+- **The card and the pick** go to `ai/runs/<run-id>/decision.md`.
+
 ## 2.3.0 — 2026-11-26
 
 - **`/fix-bug` — is it a bug? Then the brief.** Phase 1:

@@ -9,6 +9,23 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-11-27
+
+**Decide before you change** (`templates/snippets/decide-before-change.md`).
+- **`/design-system`** shows a decision card before Generate. A distributed design is no longer
+  the default answer to a scale question.
+  - **The problem** is the Phase 1 numbers.
+  - **The biggest costs** are the bottleneck ledger's binding constraints.
+  - **The options** are leaving the current shape, the simplest change inside what already runs,
+    and the distributed design.
+  - **The distributed option** is priced from capacity-planner's scaling strategy, since nothing
+    is drawn yet.
+  - **Generate draws only the option picked.** It is one pause, after the capacity model. A pick
+    that needs no new boundary ends there, with the card in the design doc.
+- **`/ds-fix`:** an outbox or relay, a lock store, or a broker, queue or stream the project does not
+  run yet is put as a card, with the primitive the project already runs first. Delivery-guarantee
+  settings, schema stops and library swaps stay put as the change.
+
 ## 2.0.1 — 2026-10-14
 
 **Integrator follow-ups.** `@workflow-orchestrator` (and its `_examples` copy) cites `broker-semantics.md` WK1–WK14, so the Restate versioning, DBOS and Zeebe rows reach its verdicts; `workflow-scan`'s F1 comment says the same. `coordination-scan` 11c routes CronJob manifest fields (`timeZone`, `concurrencyPolicy`, `startingDeadlineSeconds`) to infrastructure `k8s-wiring-scan` §5; backend `job-lifecycle-scan` §6 keeps only which local time the job means (Boundaries, §11, the measured rows and the output example updated).

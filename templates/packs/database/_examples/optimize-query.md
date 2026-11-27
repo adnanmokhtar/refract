@@ -28,7 +28,7 @@ Profiles a target query, proposes index / rewrite / denormalization, and emits a
 
 **The agent does NOT:** jump to denormalization/matview before scanning the 4 buckets; add an index that left-prefix-matches an existing one; propose caching as a primary fix; tune `SELECT *` plans (replace with column list first); skip prod-shaped EXPLAIN validation.
 
-**The agent ONLY asks the user when:** the fix is denormalization/matview (write-cost ADR), an existing index left-prefix-covers the proposal, or the query is rarely-called below SLO threshold.
+**The agent ONLY asks the user when:** the fix is denormalization/matview (write-cost ADR), an existing index left-prefix-covers the proposal, or the query is rarely-called below SLO threshold. The denormalisation, matview and rarely-called cases are asked with a decision card ([`decide-before-change.md`](../../../snippets/decide-before-change.md)); a left-prefix conflict is re-derived first (the halt below). The card shows the measured plan cost, the options (leaving it, the rewrite or the extended index, the bigger move), cost against gain with the write cost counted, what it delays, and a recommendation; the card and the pick go to `ai/dynamic/decisions-pending.md`, and every store is read by key before a card is raised, so a decided query is not asked again. An index fix needs no card: the worth-it verdict below is its cost-benefit on measured inputs. A `NOT WORTH IT` verdict is the recommendation to leave it; an `UNJUSTIFIED` one is "measure first", naming the missing input.
 
 ## Closure-verb tiers (mandatory dispatch table)
 
@@ -90,7 +90,7 @@ All 7. Phase 6 = before/after `EXPLAIN ANALYZE` on prod-shaped data.
 
 ## `--plan`
 
-Accepts `--plan` (see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)). With the flag set: run Phases 1-3 read-only (trace the SQL, capture the baseline `EXPLAIN`, run the similar-query-scan, classify the dominant cost), then emit the index / rewrite / migration it WOULD generate — the exact DDL or rewritten SQL, the bucket it maps to, the siblings it covers — as a plan artifact under `.claude/plans/`. **Write no migration file, touch `ai/` not at all.** A normal run (no flag) generates the migration (still never auto-applied) as documented.
+Accepts `--plan` (see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)). With the flag set: run Phases 1-3 read-only (trace the SQL, capture the baseline `EXPLAIN`, run the similar-query-scan, classify the dominant cost), then emit the index / rewrite / migration it WOULD generate — the exact DDL or rewritten SQL, the bucket it maps to, the siblings it covers — as a plan artifact under `.claude/plans/`. **Write no migration file, and touch `ai/` only to record a decision card's pick in `ai/dynamic/decisions-pending.md`.** A normal run (no flag) generates the migration (still never auto-applied) as documented.
 
 ## Honesty clause
 

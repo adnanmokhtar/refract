@@ -3,7 +3,7 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.8.0
+version: 1.9.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -187,27 +187,37 @@ the top card the drain has not seen yet.
 
 **Parking.** A card that stops mid-build is parked, in every `/task` run, a single card or a
 drain. It stops at a T3 gate, or on a question that appears during the build (`NEEDS_INPUT`, from
-`/add-feature` or `/fix-bug`). In a single-card session the person is asked there first. The card
+`/add-feature` or `/fix-bug`), or on decision cards a routed command raised itself (`NEEDS_INPUT`
+from any routed command — `/optimize`, `/audit`, `/upgrade-dep`, `/design-system`, a pack fixer —
+after it finished everything that needed no card; `decide-before-change.md` § 8). In a single-card session the person is asked there first. The card
 is parked when no answer comes in that session, or at once inside a drain (`drain=1`):
 1. **Keep the worktree.** It is not removed, so the run folder, the baseline
    (`.claude/baselines/<sha>/`), the holdouts and the red-run log stay where the run left them.
    Commit the code so far as a local WIP commit, without `ai/runs/`. Push it **only** to
    `wip/<branch>` (`git push origin HEAD:refs/heads/wip/<branch>`), never to the card's branch, so
    the card's branch and its open PRs keep their last good state.
-2. Post the gate's summary, or the question, as a `/task` comment.
-3. Set `brief.md`'s status to `parked at <gate|question>`, with `run:` and `worktree:` in its header (study-before-build § 0); name the run id in the park comment too. Move the card to `waitIn`.
+2. Post the gate's summary, the question, or the decision cards (each with its options and its
+   recommendation), as a `/task` comment.
+3. Set `brief.md`'s status to `parked at <gate|question|decision>`, with `run:` (when the command has a run id) and `worktree:` in its header (study-before-build § 0); name the run id in the park comment too. Move the card to `waitIn`.
 4. Take the next card. A parked card does not count toward `--max`.
 
 **Resuming.** When the person approves the gate or answers the question, in the chat or on the
 card:
 - `/task` posts it as a `/task` Gate or Answer comment and writes it into `brief.md` (`gates:`, or
-  the answer);
+  the answer; a pick is written under its card's key, the Answer comment quotes that key and the option, and
+  the pick also goes into the routed command's decision store, `decide-before-change.md` § 9);
 - it sets the status back to `approved`, and the card goes back to its origin list.
 
-The next run then dispatches the card with `--resume=<run-id>`, taken from the `run:` field of `brief.md` or from the park comment:
+The next run then dispatches the card again; `/add-feature` and `/fix-bug` get `--resume=<run-id>`, taken from the `run:` field of `brief.md` or from the park comment:
 - **Same machine:** the run continues in the kept worktree, at the phase after the gate or the
   question. `/add-feature` resumes from its `run.json`; `/fix-bug` resumes from its markers
-  (`diagnosis.md`, the red and green runs, `verdict.json`). Both honour `--resume=`.
+  (`diagnosis.md`, the red and green runs, `verdict.json`). Both honour `--resume=`. Any other
+  command (`/optimize`, `/audit`, `/upgrade-dep`, a fixer) is dispatched again without `--resume`,
+  in the kept worktree. `/task` first folds its writes to the brief and the store into the WIP commit, so a command that
+  needs a clean tree starts clean. The command reads the brief's picks (the record folder) and its
+  own store first,
+  builds the picks, and asks nothing already decided. On another machine the brief is rebuilt from
+  the card's comments (study-before-build § 0), so the picks survive there too.
 - **Another machine:** the worktree is not there, so the run cannot resume. It starts over with the
   approved brief. `/task` cuts the worktree in BRANCH: from the card's branch on the remote when it
   exists (a `fixLists` card's first build is kept), otherwise from `branchFrom`. The WIP code is
@@ -430,7 +440,7 @@ time. Scheduled: `/schedule` → "every Sunday 09:00, run `/task status`".
 5. PLAN      — AC + subtasks → ordered worklist; classify intent (feature/fix/refactor/audit)
 6. MARK      — write-back: move source to "In Progress" (unless --no-writeback)
 7. BRANCH    — with task-flow.json `git`: cut the card's branch (and worktree) from branchFrom — a parked card reuses its kept worktree (on another machine: the card's remote branch, or branchFrom), a fixLists card its branch; copy brief.md + study.md into its record folder; `test-level.py set <level>` there
-8. EXECUTE   — route the synthesized description to /do, with --test=<level>, card=<key>, brief=approved, record=<folder>, drain=1 in a drain, --resume=<run-id> for a parked card
+8. EXECUTE   — route the synthesized description to /do, with --test=<level>, card=<key>, brief=approved, record=<folder>, drain=1 in a drain, --resume=<run-id> for a parked /add-feature or /fix-bug card
 9. VERIFY    — check each AC / subtask against the change; `test-level.py run` at the level; run .claude/scripts/gate-check.py --local when the project has one
 10. CLOSE    — under `ready`: open PR → draft, push, `test-level.py mark`, then PRs opened / made ready — else push + one PR per `git.prTo` target; comment summary + commit/PR on the source unless «من غير كومنت»; move to Review (Done only on gate-check PASS)
 ```
@@ -474,10 +484,10 @@ These reads run inside the study (Phase 1 step 6), before the brief, so their qu
 - **`--to=<command>`** (pin the target) → skip `/do` routing; dispatch the synthesized description **directly** to `/<command>` (must exist in this repo). Without `--to`, the target is picked in this order: a card whose brief changes a recorded rule (the person chose "change", Phase 1 step 6) → `/add-feature`; a `fixLists` card → `/fix-bug`; the first `labelRoutes` match → its command, dispatched exactly as `--to` would; otherwise **dispatch to `/do`** so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
 - **`--to=` naming a level-D command** (its frontmatter carries `disable-model-invocation: true` — deploy, rollback, provisioning, the mutating migration commands, `/delegate`, `/setup-project*`) is NOT dispatched: the Skill tool refuses it, and a human types those (H3). Run Phase 1–3 as normal, then print the exact `/<command> <synthesized description>` for the user to type and end the run without write-back — the same hand-back `/do` performs.
 - If the task obviously spans multiple specialists (e.g. "add endpoint AND its UI"), run them in dependency order; record each in the worklist.
-- **The approved brief travels with the dispatch.** Before dispatching, copy `ops-local/refine/<card-key>/brief.md` and `study.md` into the card's record folder, `ai/features/<YYYY-MM-DD>-<slug>/`, in the branch or worktree the command runs in. Then dispatch with `card=<key>`, `brief=approved`, `record=<that folder>`, `drain=1` inside a drain, and `--resume=<run-id>` for a parked card. Through `/do` the fields are forwarded unchanged. The dispatched description also opens with the approved brief and the line "This brief is approved; do not study or ask again."
+- **The approved brief travels with the dispatch.** Before dispatching, copy `ops-local/refine/<card-key>/brief.md` and `study.md` into the card's record folder, `ai/features/<YYYY-MM-DD>-<slug>/`, in the branch or worktree the command runs in, and commit those two files by name, so a routed command that needs a clean tree starts clean. Then dispatch with `card=<key>`, `brief=approved`, `record=<that folder>`, `drain=1` inside a drain, and `--resume=<run-id>` for a parked `/add-feature` or `/fix-bug` card. Through `/do` the fields are forwarded unchanged. The dispatched description also opens with the approved brief and the line "This brief is approved; do not study or ask again." A decision card the routed command raises itself is not decided under that line: it is held out and returned as `NEEDS_INPUT` (§ Parking).
   - `/add-feature` and `/fix-bug` read the record folder and write `design.md` and `acceptance.md` beside it (`study-before-build.md` § 9).
   - **Any other routed command** (`/enhance-ui`, `/optimize`, …): after it finishes, `/task` writes `design.md` itself, from the diff (what changed where, and why, per the brief), and `acceptance.md` from the brief's criteria.
-  - **`/task` commits, by name.** When the routed command returns, `/task` commits the files it changed. It names the paths from `git status`, never `git add -A`, and leaves out `ai/runs/` and `ops-local/`: one conventional commit, titled from the brief. It then commits the record folder and its `ai/features/_index.md` line as a second commit, and pushes. When the routed command already committed its work, only the record commit remains.
+  - **`/task` commits, by name.** When the routed command returns, `/task` commits the files it changed. It names the paths from `git status`, never `git add -A`, and leaves out `ai/runs/` and `ops-local/`: one conventional commit, titled from the brief. It then commits the rest of the record folder and its `ai/features/_index.md` line as a second commit, and pushes. When the routed command already committed its work, only the record commit remains.
 - **With a `git` block** (§ *Board flow*), the card's branch — and its worktree — is cut before the dispatch, and the routed command runs inside it. A card that re-enters from `fixLists` and already has its branch reuses that branch, recreating the worktree from it, instead of cutting a second one.
 
 ### If the run halts after the card was marked
