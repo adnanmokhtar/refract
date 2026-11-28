@@ -133,7 +133,7 @@ The gate's own correctness:
 ## Phase 7 — Improve (feed the learning loop)
 
 - If check 3 (net-lines ≤ 0) fails 2+ phases in a row, surface "closure-verb discipline drift" — the team is reaching for new abstractions; queue ADR.
-- If check 4 (no new symbols) fails, surface the specific new symbols added — these belong in `_extracted-idioms.md` if intentional (route to `/setup-project --refine`).
+- If check 4 (no new symbols) fails, surface the specific new symbols added. They leave the alignment PR; one that is wanted is built in its own change by its owner, then declared (`decide-before-change.md` § 10).
 - If check 5 (scope creep) fails, the scan's `scope` fields were too narrow OR the porter expanded scope mid-fix; queue review of scan-time scoping.
 - If check 7 (one way per pattern) fails, the token map is not context-keyed for that value; the decision belongs to a human, recorded in the oracle.
 - If check 13 fails on VC rows repeatedly, the scan is classifying nearest-token snaps as EQ; check the `token-map.py` lookups (precedents/align § 7, § 27).

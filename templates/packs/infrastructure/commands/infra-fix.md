@@ -179,6 +179,8 @@ On every touched root: `terraform validate` and `fmt -check` (or Tofu's), `helm 
 ### Commit (one finding = one commit, only where the repo allows it)
 Read the convention first (recent `git log`, a protected or PR-only branch, a no-commit rule in `CLAUDE.md` or `CONTRIBUTING`). Where commits are allowed: `fix(infra): <what would have gone down, been lost or run twice> — <finding id>`, for example `fix(infra): a destroy of the orders database kept no final snapshot — I-02`. Otherwise **leave the change staged and say so**. Nothing is applied: the deploy path the report named applies it, after review.
 
+**A shared application-side unit the fix built** (a client the application will reuse) is declared in the same commit ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10): its entry in `.claude/_extracted-idioms.md`, ending `[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md` (kind `service`). An IaC module or policy needs no row: Phase 2.5 does not extract infrastructure code. A new unit has fewer than three users: without the row, the next `/setup-project` run drops it, and the row that halted for it halts again.
+
 ## Phase 5 — Update
 - Update `ai/audits/<date>-infrastructure*.md` in place, or write a `-fix.md` companion: mark each finding and append the closure table.
 - `ai/dynamic/changelog.md`: `Infrastructure fix on <scope>: C closed, S staged, N no-data (L-tier, read owed), E escalated, D deferred`.

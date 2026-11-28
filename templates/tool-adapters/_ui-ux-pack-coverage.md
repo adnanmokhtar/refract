@@ -69,7 +69,7 @@ Power users still drop down to `/enhance-ui` (explicit single-area iteration), `
 5. `_extracted-idioms.md § Voice` (optional) — tone of voice guide.
 6. Playwright MCP wired (or fallback documented per-tool).
 
-If the idioms inventory is incomplete → halt; route to `/setup-project --refine`.
+If the idioms inventory is incomplete → halt; route to `/setup-project --refine` when the code has what is missing, or to the command that builds it (`/polish` for tokens) when it does not (`decide-before-change.md` § 10).
 
 ## Per-tool translation expectations
 
@@ -235,7 +235,7 @@ The rule's "Tool-agnostic procedure" section walks through this for rule-only to
 ## Failure modes
 
 - **Playwright MCP not wired** → tool-with-MCP-support: install MCP. Tool-without: rule documents manual screenshot procedure.
-- **Idioms inventory incomplete** → all tools halt; route to `/setup-project --refine`.
+- **Idioms inventory incomplete** → all tools halt; route to `/setup-project --refine` when the code has it, or to the command that builds it when it does not (`decide-before-change.md` § 10).
 - **Non-frontend stack** → halt regardless of tool.
 - **Adapter flattens to thin wrapper** → review-checklist failure; reject the translation.
 

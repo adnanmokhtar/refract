@@ -83,7 +83,7 @@ Examples:
 7. **Boot-check (final)** — dispatch the `smoke-verify` skill (code-quality pack) after the last commit. A green scoped suite does not prove the app still starts: `replace-with-shared` re-points an import, `dedupe` deletes the copy a module was resolving, `remove` can take an export something registers by side effect. Skippable with `--no-boot-check` for pure libraries. **Recorded as `boot-check: pass` or `boot-check: skipped(<reason>)`**, and a skip also goes under `Not validated:`.
 8. **Self-resolve common questions** — the oracle is the truth; a T2g (generated) line is not, and its rows wait at `pending-ratification` for one human confirmation per rule.
 9. **Halt only on genuine blockers**:
-   - An idiom the fix needs that no oracle names → that row halts; "/setup-project --refine to add the primitive first".
+   - An idiom the fix needs that no oracle names → that row halts. When the code has it, `/setup-project --refine` declares it; when it does not, the command that builds that kind does ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 10). Refine never builds one, and the oracle never changes inside this run: the row resumes in a later one.
    - A wrapper gap (the raw call does something the wrapper does not expose) → that row routes to `/unify-surfaces`.
    - A VC row with no approval → `pending-approval`; the rest continue.
    - Behaviour change risk → re-classify as `/refactor`; the user decides.
@@ -279,7 +279,7 @@ User sees results, not the policing.
 
 - **Align pack not installed** → one line, `align pack not installed — /setup-project --include=align`, and stop.
 - **No findings** → the audit's verdict line (ALIGNED, or ALIGNED-UNVERIFIED with what was not looked at); nothing to fix.
-- **Idiom missing** → halts the affected row; surfaces "/setup-project --refine" to add the missing primitive; rest continue.
+- **Idiom missing** → halts the affected row and names its route: `/setup-project --refine` when the code has it, the command that builds that kind when it does not (`decide-before-change.md` § 10); rest continue.
 - **A VC row without approval** → `pending-approval`, with the diff images; rest continue.
 - **A sweep gate FAIL** (two tokens for one hex, an out-of-scope hunk, a snapshot edit) → the row reverts and halts with the ladder line; rest continue.
 - **Behavior change risk** → that row skips with a note; rest continue.

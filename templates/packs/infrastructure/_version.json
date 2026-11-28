@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "infrastructure",
-  "version": "2.1.0",
-  "released": "2026-11-27",
+  "version": "2.1.1",
+  "released": "2026-11-28",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/infra-fix puts a capacity increase, a new managed service or store, or multi-AZ as a decision card, with the monthly cost from the quantity arithmetic and a setting on what already runs as the first option.",
+  "summary": "/infra-fix declares a module, client or policy the fix built for reuse in the same commit: its _extracted-idioms.md entry and an ai/declared-idioms.md row, so the next /setup-project run keeps it.",
   "changelog": "CHANGELOG.md"
 }

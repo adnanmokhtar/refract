@@ -375,6 +375,7 @@ Next:       /ship (commit + PR) · a human merges
 
 ## Hard rules
 
+- A shared unit this feature adds because another command halted for it (a gate, a permission check, a client, a hook; [`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10) is declared in the same commit: its entry in `.claude/_extracted-idioms.md`, ending `[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md` (kind `wrapper` for a component, `composable` for a hook, `service` for a client or helper). A new unit has fewer than three users: without the row, the next `/setup-project` run drops it, and the row that halted for it halts again.
 - The tier is chosen by `risk-tier.py` before code and only ever promoted; a lower tier is forced at
   P0 only, with a logged reason.
 - No production code before the acceptance contract is written, red and locked, and the behaviour it

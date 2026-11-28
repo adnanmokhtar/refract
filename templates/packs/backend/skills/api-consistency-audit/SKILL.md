@@ -30,7 +30,7 @@ Drift is measured against the project's OWN primitive — detect and mirror it b
 | **Rails** | `render` + `rescue_from` | `rack-attack` | `fresh_when` / `stale?` | `pagy` |
 | **Laravel** | Resource + Handler | `throttle` middleware | `setEtag` / `SetCacheHeaders` | `cursorPaginate` |
 
-Where the project ships `_extracted-idioms.md § API conventions`, that file is the oracle for which shape is canonical; the framework table only tells the detector WHERE to look.
+The oracle for which shape is canonical is the person's `ai/api-conventions.md`, then `_extracted-idioms.md § API conventions`, which `/setup-project` measures. A canonical axis known only from the measured section is unconfirmed: it is reported as drift, and nothing is renamed against it until the person confirms it (`/polish` step 4.5). The framework table only tells the detector WHERE to look.
 
 ## When to run
 
@@ -401,7 +401,7 @@ comm -23 callers.txt has-retry.txt          # outbound callers with NO retry pol
 
 1. **Pre-flight**:
    - `PROJECT_KIND` matches `backend-*`. Halt otherwise (this skill is backend-only).
-   - `_extracted-idioms.md § API conventions` OR `ai/api-conventions.md` exists. Halt if missing — without canonical conventions, drift is undefined.
+   - `ai/api-conventions.md` OR `_extracted-idioms.md § API conventions` exists. Missing: under `/polish`, return the endpoint registry's shapes for its step 4.5; anywhere else, halt — without canonical conventions, drift is undefined.
    - OpenAPI spec discoverable (warn-only if missing; openapi-coverage detector skips).
 2. **Build endpoint registry** — walk controllers / route table; emit one row per `{method, path, file, line}`.
 3. **For each fingerprint** (1–15 + 3b, plus routed siblings 8b–8g above):
@@ -416,7 +416,7 @@ comm -23 callers.txt has-retry.txt          # outbound callers with NO retry pol
 - **Per-endpoint commit** — one finding = one commit (except for naming-convention-drift sweeps where a single mass-rename commit is acceptable when wired through serializer mapping).
 - **OpenAPI must stay in sync** — every code change updates the spec in the same commit.
 - **Contract tests must stay green** — if the project has them.
-- **No detector invents new conventions** — the canonical shape always comes from `_extracted-idioms.md § API conventions`. If that file says nothing about envelope/naming/etc., the detector skips with WARN.
+- **No detector invents new conventions** — the canonical shape always comes from `ai/api-conventions.md`, else `_extracted-idioms.md § API conventions` (unconfirmed until the person confirms it). If that file says nothing about envelope/naming/etc., or writes the axis `split` (no shape passes both of `/setup-project`'s cuts: 80 % of the sites and 90 % of the files added in the last 6 months), the detector skips with WARN; under `/polish`, step 4.5 decides that axis.
 - **No detector invents a closure verb.** The vocabulary is the 15 in the table above and it is enforced by a script, not by convention. Reuse the verb whose *act* matches, or emit `routed_to:` instead. Extending the vocabulary is a coordinated change to `scripts/validate-polish-artifacts.sh` **and** `commands/polish.md` — not something a detector does unilaterally.
 
 ## False positives / gotchas
@@ -431,8 +431,8 @@ comm -23 callers.txt has-retry.txt          # outbound callers with NO retry pol
 
 ## Halt conditions
 
-- **`api-conventions.md` / `_extracted-idioms.md § API conventions` missing** → halt; the canonical is undefined. Surface "/setup-project --refine to declare API conventions first". No detector invents a convention.
-- **Conflicting conventions** (`api-conventions.md` says snake_case but `_extracted-idioms.md` says camelCase) → halt; surface the conflict for user resolution rather than picking one.
+- **`api-conventions.md` / `_extracted-idioms.md § API conventions` missing** → the canonical is undefined. Under `/polish`, not a halt: return the measured shapes, and step 4.5 puts the choice on a decision card. Anywhere else, halt: when the code already follows one shape, surface "/setup-project --refine to declare API conventions first"; when it follows none, route to `/polish` (`decide-before-change.md` § 10). No detector invents a convention.
+- **Conflicting conventions** (`api-conventions.md` says snake_case but `_extracted-idioms.md` says camelCase) → `ai/api-conventions.md` is the person's decision and wins; `§ API conventions` is a measurement. Print `measured <shape>, declared <shape>` (a migration in progress, or a stale decision for the person to correct) and audit against the declared shape. No precedence is picked by the detector.
 - **`PROJECT_KIND` is not `backend-*`** → halt (this skill is backend-only).
 - **A finding lacks its cited `<method path>` + `<file:line>` + the canonical it diverges from** → not emittable; re-derive or drop it.
 - **High-risk closure** (would break a public contract — rename a field, change the envelope) → flag `risk: high`, halt *that* finding, surface the ADR template; the rest continue.

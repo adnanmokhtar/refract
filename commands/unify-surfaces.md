@@ -1,9 +1,9 @@
 ---
 description: Consolidate every instance of ONE surface type behind ONE canonical shared implementation, app-wide. Tables, forms, headers, tabs, filters, buttons, validation. Trigger when the ask names the surface type AND the remedy is that every instance end up going through that one implementation — extracted, extended, or migrated onto. For six of the seven categories that is ONE shared wrapper; for validation it is the ONE 3-part pipeline, which is why 'standardise form validation everywhere' triggers here though no single wrapper comes out of it — see § Validation pipeline. 'Unify all tables', 'every page header should look the same', and the same ask phrased as some-do-X-some-do-Y ('some pages use the shared PageHeader and some roll their own'), where the rolled-own ones must be reconciled INTO the canonical shape — wrapper work /align's closed 21-verb set is barred from doing. Do NOT trigger when a surface noun appears but the wrapper is NOT what changes — a token, a11y rule or naming rule the project already documents is simply applied in place ('our buttons ignore the spacing tokens on the auth pages') — that is /align, which also owns a generic 'make it consistent' carrying no surface-type noun. Do NOT trigger to INTRODUCE an axis the project does not have yet (no token defined, no motion system, no missing-state contract) — that is /polish. Not one mechanical a11y class app-wide (/ui-crawl-fix).
-compatibility: Frontend stacks only — requires PROJECT_KIND in frontend-*, mobile-web, or mobile-rn, and halts with a redirect to /polish otherwise, mobile-native included. Requires _extracted-idioms.md Wrappers and _extracted-codebase.md Gold standards populated. A Playwright MCP powers the visual-regression gate; without it verification soft-fails to text-only and the parity evidence is weaker.
+compatibility: Frontend stacks only — requires PROJECT_KIND in frontend-*, mobile-web, or mobile-rn, and halts with a redirect to /polish otherwise, mobile-native included. Requires _extracted-idioms.md present (its Wrappers section may be empty, since extracting the first wrapper is this command's job) and _extracted-codebase.md Gold standards populated. A Playwright MCP powers the visual-regression gate; without it verification soft-fails to text-only and the parity evidence is weaker.
 kind: command
 pack: orchestration
-version: 1.0.0
+version: 1.1.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -94,7 +94,7 @@ Examples:
 4. **Per requested surface category, in parallel where independent** (foundation order: buttons → headers / tabs / forms / tables / filters → validation; validation depends on forms being unified):
    - **INVENTORY** — find every consumer of this surface type. Detection signals per category in § Detection signals.
    - **DECIDE CANONICAL** — if `_extracted-idioms.md` names a wrapper for this category, that's canonical. Else: cluster consumers by shape similarity, pick the most-used shape, propose it as canonical. If 2+ shapes have similar usage AND none is in idioms → halts on this category (one of the few legitimate halts) with "no clear canonical shape; pick from <N> candidates" and surfaces 2 candidates.
-   - **EXTRACT / EXTEND** — if canonical wrapper exists → extend it for any prop / variant the consumer corpus needs that's missing. If it doesn't exist → extract it from the chosen consumer; move to the project's shared wrapper directory; add to `_extracted-idioms.md § Wrappers` so future runs know.
+   - **EXTRACT / EXTEND** — if canonical wrapper exists → extend it for any prop / variant the consumer corpus needs that's missing, and list it under `_extracted-idioms.md § Wrappers`, with a `wrapper` row in `ai/declared-idioms.md`, when it is not there yet. If it doesn't exist → extract it from the chosen consumer; move to the project's shared wrapper directory; add to `_extracted-idioms.md § Wrappers`, and a `wrapper` row to `ai/declared-idioms.md`, so future runs know: a new wrapper has fewer than three users, and the next `/setup-project` run keeps only what that file declares.
    - **MIGRATE CONSUMERS** — rewrite every non-canonical consumer to use the canonical wrapper. One commit per surface category (not per consumer — cascading rewrite is the point).
    - **VERIFY** — typecheck + lint + scoped tests + visual-regression on non-target surfaces (must not change). Re-detect: every non-canonical consumer must be gone; canonical wrapper consumers count must equal `inventory_count - skipped`.
 5. **Validation pipeline** (when `validation` in surfaces list, runs after `forms`) — see § Validation pipeline.
@@ -102,7 +102,7 @@ Examples:
    - Multiple equally-used canonical candidates with no `_extracted-idioms.md` tiebreaker → user picks.
    - Visual-regression collateral on a NON-target surface → halts that category's commit; rest continue.
    - Migration would break a public API (e.g., a wrapper exposed from a published library) → halts; surfaces ADR template.
-   - Wrapper extraction would require a primitive that doesn't exist (e.g., the project has no design-token system at all) → surfaces "/setup-project --refine to add primitive first"; halts that category.
+   - Wrapper extraction would require a primitive that doesn't exist (e.g., the project has no design-token system at all) → halts that category and routes to `/polish`, which introduces it ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 10). `/setup-project --refine` only declares a primitive the code already has.
 
 ## Detection signals (per category)
 
@@ -311,7 +311,7 @@ All internal. Just results.
 ## Pre-requisites
 
 - `PROJECT_KIND` is `frontend-*` (or `mobile-web` / `mobile-rn`). Halts otherwise.
-- `_extracted-idioms.md § Wrappers` populated. If missing → halts with "/setup-project --refine to extract idioms first".
+- `_extracted-idioms.md` present. If the file is missing → halts with "/setup-project --refine to extract idioms first". A file with no `§ Wrappers` (no wrapper has three users yet) is not a halt: each category decides its canonical shape from its consumers (step 4).
 - `_extracted-codebase.md § Gold standards` populated.
 - Mechanical CI green.
 - Working tree clean (or `--allow-dirty`).
@@ -340,7 +340,7 @@ User sees results, not the policing.
 ## Failure modes
 
 - **Stack not frontend** → halts; redirects to `/polish` (backend / data) or `/align` (cross-cutting drift).
-- **`_extracted-idioms.md § Wrappers` missing** → halts; surfaces `/setup-project --refine`.
+- **`_extracted-idioms.md` missing** → halts; surfaces `/setup-project --refine`. A missing `§ Wrappers` is not a halt (Pre-requisites).
 - **No clear canonical shape** (multiple equally-used patterns, no idioms tiebreaker) → halts that category; surfaces 2 candidates; `--no-iterate` skips the prompt and picks alphabetically.
 - **Public-API wrapper rename** would break a published library → halts; surfaces ADR template.
 - **Visual-regression collateral on non-target surface** → that category's commit reverts; rest continue.

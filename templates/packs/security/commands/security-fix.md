@@ -176,6 +176,8 @@ fix(security): <what an attacker could do> — <finding id>
 
 (e.g. `fix(security): read any user's invoice by id — F-03`). If the repo convention does **not** allow direct commits (protected branch, PR-only, no-commit policy detected), **leave the change staged and say so** in the output — do not commit against the policy.
 
+**A shared unit the fix built** (a gate, a validator or a sanitiser that other code will reuse) is declared in the same commit ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10): its entry in `.claude/_extracted-idioms.md`, ending `[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md` (kind `wrapper` for a component, `composable` for a hook, `service` for a client or helper). A new unit has fewer than three users: without the row, the next `/setup-project` run drops it, and the row that halted for it halts again.
+
 ## Phase 5 — Update
 
 - Update the audit report `ai/audits/<date>-security.md` in place (or write a `-fix.md` companion): mark each closed finding and append the **closure table** (below).

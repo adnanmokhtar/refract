@@ -147,6 +147,7 @@ Next: /review-changes (independent pass before merge)  OR  /optimize the module 
 
 Applied silently:
 
+- **A shared unit extracted for a halted row is declared** in the same commit ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 10): its entry in `.claude/_extracted-idioms.md`, ending `[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md` (kind `wrapper` for a component, `composable` for a hook, `service` for a client or helper). A new unit has fewer than three users: without the row, the next `/setup-project` run drops it, and the row that halted for it halts again.
 - **Validator gate is mandatory.** After edits, run `~/.claude/scripts/validate-refactor-artifacts.sh`. Enforces `closure_verb` ∈ 10 refactoring-sweep verbs, gap-count parity for terminal rows, optional net-lines check with `--phase-base`, hand-wave scan on findings, and **`## Actionable next steps`** in `ai/refactor/final-report.md` when that file exists.
 - **Only refactoring-sweep verbs** in `ai/refactor/ledger.md` — route architectural / perf / convention classes to `/optimize` or `/align`.
 - **Behaviour-preserving** unless user explicitly accepts breaking change + ADR.

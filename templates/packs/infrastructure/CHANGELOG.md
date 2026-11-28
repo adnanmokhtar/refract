@@ -9,6 +9,13 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.1 — 2026-11-28
+
+**`/infra-fix` declares what it builds.** It records a module, client or policy the fix built for reuse in the same commit
+(`templates/snippets/decide-before-change.md` § 10): its entry in `.claude/_extracted-idioms.md`, ending
+`[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md`. Without the row, the next `/setup-project` run dropped the new unit below the three-user threshold,
+and the row that had halted for it halted again.
+
 ## 2.1.0 — 2026-11-27
 
 **Decide before you change.** `/infra-fix` now puts a stop that is a choice as a decision card

@@ -844,6 +844,27 @@ if [[ "$MODE" != "create" ]]; then
   else
     warn_msg "_extracted-idioms.md missing — Phase 2.5 (deep idiom extraction) was skipped. AUTHOR-mode tracks will fall back to COPY-mode (generic templates), so the generated setup will be less project-specific. If the codebase has any base class with ≥3 extenders, re-run with Phase 2.5 enabled."
   fi
+
+  # C2di — declared idioms kept (templates/snippets/decide-before-change.md § 10). A unit built on
+  # purpose (a wrapper, a gate, a token source) has fewer than three users, so the extraction
+  # threshold drops it unless ai/declared-idioms.md forces it in, and dropping it brings back the
+  # halt the unit was built to clear. Gate: test-check-declared-idioms.sh.
+  if di_out="$(bash "$SCRIPTS_DIR/check-declared-idioms.sh" "$TARGET" 2>&1)"; then
+    ok "C2di ${di_out}"
+  else
+    err "C2di $(printf '%s\n' "$di_out" | tail -1)"
+    printf '%s\n' "$di_out" | grep '^FAIL' | sed 's/^/       /' || true
+  fi
+  # Every ui-ux command halts without `## Tokens`. Measured once already (detect-signals.sh): a
+  # tokens.css on disk and no section. A WARN, since a file name is not proof of a token system.
+  if [[ -f "$CL/_extracted-idioms.md" ]] && ! grep -qE '^## Tokens' "$CL/_extracted-idioms.md"; then
+    tok_src="$( { find "$TARGET" \( -name node_modules -o -name .git -o -name dist -o -name build -o -name backups -o -name vendor \) -prune \
+                  -o -type f \( -name 'tokens.css' -o -name 'tokens.scss' -o -name '_tokens.scss' -o -name 'design-tokens.json' \
+                  -o -name '*.tokens.json' -o -name 'tailwind.config.*' \) -print 2>/dev/null || true; } | head -1 )"
+    if [[ -n "$tok_src" ]]; then
+      warn_msg "C2di _extracted-idioms.md has no ## Tokens while ${tok_src#"$TARGET"/} is on disk — every ui-ux command halts without it (phase-2-profile.md § Foundations)"
+    fi
+  fi
 fi
 echo ""
 

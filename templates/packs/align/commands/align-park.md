@@ -17,7 +17,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 ## When to use
 
-- A halted row whose closure verb halt has no quick remediation (e.g., idiom missing, would require `/setup-project --refine` + idiom adoption first).
+- A halted row whose closure verb halt has no quick remediation (e.g., idiom missing: it must be built by its owner, or declared, first — `decide-before-change.md` § 10).
 - A finding that should be re-classified to a different class but the user is mid-effort and doesn't want to derail the phase.
 - A finding whose fix is correct but blocked by a cross-repo dependency.
 - A finding the team has decided to defer to a later cadence (e.g., "this clean-code finding requires a renaming sprint; defer to Q3").
@@ -114,13 +114,14 @@ Halt reason (from ai/align/halts/A047.md):
   declared in packages/ui/src/can/permissions.ts.
 
 Park reason:
-  "Idiom missing — the refund ability must be declared first
-  (/setup-project --refine). Defer to phase 4 after refine."
+  "Idiom missing — the refund ability must exist first: /add-feature
+  adds it to permissions.ts (refine cannot write code). Defer to
+  phase 4."
 
 Override:  --override-high="<who decided, and until when>"   (A047 is HIGH)
 
 Blocker category: idiom-missing
-Unpark after: refine completes (target: 2026-04-25)
+Unpark after: the ability lands (target: 2026-04-25)
 
 Effects:
   - status: halted → parked
@@ -145,7 +146,8 @@ Parking it removes it from every escalation this pack has:
 
 The blocker is real (no orders.refund ability is declared).
 Three ways forward:
-  /setup-project --refine          declare the ability, then re-run the verb   ← preferred
+  /add-feature                     add the ability, then re-run the phase      ← preferred
+                                   from A047 (refine writes no code)
   /align-park A047 --override-high="<who decided, and until when>"
   leave it halted                  the 24h clock keeps running, which is the point
 ```
@@ -156,9 +158,9 @@ Post-execution summary:
 Finding A047 parked.
 
 Status:        halted → parked
-Reason:        Idiom missing — needs /setup-project --refine ...
+Reason:        Idiom missing — the refund ability must exist first ...
 Blocker:       idiom-missing
-Unpark after:  refine completes (target: 2026-04-25)
+Unpark after:  the ability lands (target: 2026-04-25)
 
 Halt file archived: ai/align/halts/parked/2026-04-21-A047.md
 Phase 3 unblocked: 4/4 active rows can advance to gate.
@@ -188,7 +190,7 @@ NO source modification. NO commit.
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- If `--blocker=idiom-missing` is the most common parked-blocker, surface "queue `/setup-project --refine` priority".
+- If `--blocker=idiom-missing` is the most common parked-blocker, surface "queue the missing primitives: refine declares the ones the code has, their owners build the rest (`decide-before-change.md` § 10)".
 - If a parked row has been parked > 90 days without unpark, surface "consider re-classification or deprecation".
 - Trend analysis: count parks per blocker category over time; surface in `/align-status` if trends emerge.
 
@@ -212,7 +214,7 @@ Pre-execution display + post-execution summary (above).
 - **Row not found** — halt; check the id with `/align-status`.
 - **Row not in parkable state** — halt; surface current state + valid transitions.
 - **Reason missing and `--no-confirm` set** — refuse; reason is mandatory.
-- **HIGH row without `--override-high`** — refuse; name the severity and the fact that parking removes it from the 24-hour escalation. Offer `/align-promote-tier` or `/setup-project --refine` (when the blocker is a missing primitive) as the alternatives.
+- **HIGH row without `--override-high`** — refuse; name the severity and the fact that parking removes it from the 24-hour escalation. Offer `/align-promote-tier`, or the primitive's route when the blocker is a missing primitive (`/setup-project --refine` when the code has it, its owner when it does not — `decide-before-change.md` § 10), as the alternatives.
 - **`prior_status` could not be read** (row malformed, status field absent) — refuse and mutate nothing. A row you cannot describe is a row you cannot defer.
 - **Phase already gated PASS** — surface warning ("park-after-gate is unusual; the gate already passed for this phase"); confirm explicitly.
 - **Every remaining row in the phase is parked** — surface it before confirming. The phase will advance and the gate will pass, and neither fact means the phase was aligned.

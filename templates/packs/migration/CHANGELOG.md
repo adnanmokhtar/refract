@@ -9,6 +9,13 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.3 — 2026-11-28
+
+**`/find-and-fix`: an empty idioms file no longer sends the port into a refine loop.** When V2
+has no idiom with three users yet, refine writes the same empty file every time. The V2 units
+the port will reuse are listed in `ai/declared-idioms.md`, and refine then extracts them
+(`templates/snippets/decide-before-change.md` § 10). A missing file still routes to refine.
+
 ## 2.0.2 — 2026-10-19
 
 - `parity-auditor`'s worked example names illustrative bootstrap files, not the `port-pair` fixture's seeded ones (`lint-fixture-leakage.py`).

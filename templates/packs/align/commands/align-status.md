@@ -90,7 +90,7 @@ Critical / blocked
   <none>   — OR —
   ! A047 (AL-15 permission gate, HIGH, heavy, halted 18h)
        Reason: add-gate verb halted; the oracle names <Can>, but no orders.refund ability is declared.
-       Remediation: run /setup-project --refine to declare the ability; parking needs --override-high.
+       Remediation: /add-feature adds the ability (refine writes no code), then the verb re-runs; parking needs --override-high.
   ! A082 (AL-11 raw primitive, standard, halted 6h)
        Reason: re-detect failed; the fix introduced a NEW abstraction.
        Remediation: re-run the verb as replace-with-shared; OR run /align-park A082 with rationale.
@@ -168,7 +168,7 @@ If any cross-reference fails → surface as a "ledger drift" warning at the top 
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- If a halted row's reason has appeared 3+ times across phases (e.g., "idiom not found"), surface "queue ADR for `/setup-project --refine` to fill the gap".
+- If a halted row's reason has appeared 3+ times across phases (e.g., "idiom not found"), surface "fill the gap once: `/setup-project --refine` when the code has the idiom, its owner when it does not (`decide-before-change.md` § 10)".
 - If `Days since last gate PASS` > 30, surface "alignment effort stalling; consider re-scoping or `/align-replan`".
 - If a row has been in-progress > 14 days, surface "consider `/align-park <id>` to defer with rationale, OR `/align-rollback <N>` to restart the phase".
 

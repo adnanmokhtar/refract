@@ -25,6 +25,7 @@ Each file's tier is shown in brackets. Tier-3 files carry a `Read by:` / `Load t
 - `business-model.md`, `competitive-context.md`, `roadmap.md` [Tier 3] — commercial context; load-trigger documented at top of each.
 - `business-domain.md`, `business-flows.md` [Tier 2] — domain glossary and flows (filled when a business domain applies).
 - `_session-digest.md` [Tier 1], `_decision-index.md`, `_convention-cheatsheet.md` [Tier 2] — compact derived views.
+- `declared-idioms.md` — shared units built on purpose that `/setup-project` must always extract, whatever their number of users. Written by the command that built the unit, or by you.
 
 ## Subdirectories
 

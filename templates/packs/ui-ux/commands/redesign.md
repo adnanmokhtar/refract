@@ -47,7 +47,7 @@ This command throws away the current layout and rebuilds it — the highest-blas
 
 - `PROJECT_KIND` is `frontend-*` / `mobile-*` (gated on `primary_frontend_framework_detected`). Backend/data-only → HALT.
 - **Working tree clean** at HEAD — the whole rebuild lands as reviewable commits, and `git` is the rollback path if the proposal is approved but the build goes wrong.
-- `_extracted-idioms.md` populated — the oracle for design tokens + shared-component / wrapper inventory + locale/RTL setup. If it's missing, halt → `/setup-project --refine`.
+- `_extracted-idioms.md` populated — the oracle for design tokens + shared-component / wrapper inventory + locale/RTL setup. If it's missing, halt → `/setup-project --refine`. If it is present and the code has no token system for it to name, halt → `/polish`, which introduces one (`decide-before-change.md` § 10).
 - Playwright MCP (or the project's screenshot harness) wired — Phase 6 renders the rebuilt surface to verify it; a redesign that is never rendered cannot claim `RTL ✓ / a11y ✓`. **If the target surface is auth-gated, an authenticated session is a prerequisite** (`storageState` / a login step — see `visual-check`, frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`): a headless/isolated browser with no session renders the login wall, and a redesign graded against a login screenshot is unverified. A blocked render HALTs (it is not the same as "no harness").
 
 ## Args
@@ -228,7 +228,7 @@ If the screenshot harness was unavailable, the `rendered:` line reads `rendered:
 - **No frontend in the repo** (backend / data-only PROJECT_KIND) — HALT; point the user at the frontend repo. Nothing to redesign here.
 - **Intent mismatch** ("just tidy / enforce tokens / add a new page") — HALT at the Phase 1 intent gate; route to `/enhance-ui` · `/polish` · `/align` · `/add-feature`.
 - **Working tree dirty** — HALT; ask the user to commit or stash first (rollback safety depends on a clean baseline).
-- **`_extracted-idioms.md` missing / thin** — the design-system oracle is unavailable; HALT → `/setup-project --refine` before redesigning blind.
+- **`_extracted-idioms.md` missing / thin** — the design-system oracle is unavailable; HALT → `/setup-project --refine` before redesigning blind. Thin because the code has no token system → `/polish` first; refine cannot write one. Thin because its shared components have fewer than three users each → list the ones the redesign must keep in `ai/declared-idioms.md`, then refine; refine alone writes the same thin file.
 - **Feature has no home in the new layout** — surface the specific feature/state and ASK keep / move / drop (the one non-gate question allowed). Never drop silently.
 - **User does not approve the proposal** — stop at the gate with no code written; legitimate end state (re-run with an adjusted direction).
 - **Screenshot harness unavailable** — build still completes, but Phase 6 visual claims are marked `SKIPPED`; the run reports RTL / a11y as NOT verified rather than asserting them.

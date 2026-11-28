@@ -87,7 +87,7 @@ The audit HALTS (refuses to advance the row) on any of these:
 3. **No oracle, or an oracle that does not resolve** — the row's `oracle:` is absent, its quote is not in the cited file, or its rule id is not declared (AL-01). Drop the row. Validator: `check_oracle_cited`.
 4. **Closure verb outside vocabulary** — the verb is not in the closed set of 21. **Structural (5):** `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`. **Functional (16):** `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename`. The security, perf and validation verbs serve only the owner carve-out (§ Scope). Validator: `check_closure_verb_in_vocab`.
 5. **Net-positive line count on a structural row** — halt; revert; redo. Validator: `check_net_lines_structural`.
-6. **Functional fix doesn't cite idiom** — the added lines call no idiom the oracle names. Route to `/setup-project --refine` or stop inventing. Validator: `check_added_lines_cite_idioms`.
+6. **Functional fix doesn't cite idiom** — the added lines call no idiom the oracle names. Stop inventing; the idiom is declared or built first (`decide-before-change.md` § 10). Validator: `check_added_lines_cite_idioms`.
 7. **Tests touched or behaviour changed** — an align commit edits a test, spec, snapshot, fixture, the class's lint config or a baseline file; or tests fail, test or assertion count drops, coverage drops beyond tolerance. Tests are **read-only** in an align commit, with no exception: a change that "needs" a snapshot update was not EQ. Sweep gate: `lock-paths`, `lock-count` (V408).
 8. **Scope creep** — a file outside the row's `scope`, or inside it a removed line that is neither an evidence line nor the verb's footprint (AL-34). Validator `check_scope_boundary` (every row commit); sweep gate `scope` (line level, V392).
 9. **New abstraction introduced** — a symbol (function / class / type / file) the oracle does not name. Validator: `check_no_new_symbols`.
@@ -120,7 +120,7 @@ Stack lanes (each language's linter, style checker, file-name checker and import
 - **Skip the ledger.** `/align-gate` halts on ledger drift.
 - **Edit a test, snapshot or baseline to make a swap pass** (halt #7).
 - **Hand-wave enumeration** (halt #2).
-- **Modify the oracle in the alignment PR.** `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md` / lint configs change via `/setup-project --refine` or an ADR. Validator: `check_oracle_unmodified`.
+- **Modify the oracle in the alignment PR.** `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md` / lint configs change via `/setup-project --refine`, an ADR, or the command that built a primitive (with its `ai/declared-idioms.md` row), in their own commit. Validator: `check_oracle_unmodified`.
 - **Close another pack's class.** Security, perf, data and quality rows are routed with their audit id.
 - **Promote or demote tier silently.**
 - **Carry V1 patterns into align findings** during a migration — V2's declared conventions win.

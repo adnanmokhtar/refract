@@ -118,6 +118,7 @@ Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md
 ## Phase 5 — Update
 - `ai/dynamic/changelog.md` — one-line: `Added <Component> at <path>`.
 - `ai/modules.md` — if the component introduces a new shared primitive class, note it.
+- `ai/declared-idioms.md` + `.claude/_extracted-idioms.md § Wrappers` — the component is shared, so it is declared ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10): a `wrapper` row, and its `§ Wrappers` entry ending `[declared: ai/declared-idioms.md]`.
 - Locale files (`locales/<lang>.json` × N locales) — every user-facing string added.
 
 ## Phase 6 — Validate

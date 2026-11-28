@@ -249,7 +249,7 @@ Revert:                    git reset --hard <pre-run HEAD>   (or git revert the 
 
 - **Resolution returns 0 matches** — halt; route to `/align-status` for known surfaces or paths.
 - **Resolved file is not a UI component** (it's a service / composable) — halt; ask user for the right file (unless tier `token` and target is a tokens module).
-- **Cleanup step halts** (idiom missing, etc.) — halt the whole flow; route to `/setup-project --refine`.
+- **Cleanup step halts** (idiom missing, etc.) — halt the whole flow. An idiom the code has → `/setup-project --refine` declares it; one it lacks → the command that builds that kind ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10).
 - **No render harness** — **do NOT halt** (see the render contract in Pre-requisites). Cleanup + re-enforce run, iterate is `SKIPPED (no harness)`, visual claims print `SKIPPED`, and the missing infra is named under `Not validated:`. Halting the pack's most-dispatched command over an optional dependency is a worse failure than skipping one step honestly.
 - **Render BLOCKED** (auth wall / redirect) — **HALT** per the same contract; the variants would otherwise be graded against a login page.
 - **design-iterate fails otherwise** (crash, timeout) — halt the iterate step only, keep the cleanup commits, report the failure with its output.

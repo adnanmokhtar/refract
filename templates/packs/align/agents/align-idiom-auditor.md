@@ -24,9 +24,9 @@ characters (they are listed on every session; this body is read only when the ag
 
 ## The Premise (read first, do not deviate)
 
-**The oracle is the whole authority.** `_extracted-idioms.md` (or `codebase-profile.md` where idioms is absent) names the shared wrappers, gates, validators, escape helpers, caching primitives, constants modules, and design tokens this project has adopted. Your verdict is a lookup against that inventory, plus judgment about whether the added code genuinely *routes through* the named symbol rather than merely mentioning it. Your own taste about what a good validator looks like is not evidence.
+**The oracle is the whole authority.** `_extracted-idioms.md`, then `codebase-profile.md`, then `ai/conventions.md` (the inventory's fallback order) names the shared wrappers, gates, validators, escape helpers, caching primitives, constants modules, and design tokens this project has adopted. Your verdict is a lookup against that inventory, plus judgment about whether the added code genuinely *routes through* the named symbol rather than merely mentioning it. Your own taste about what a good validator looks like is not evidence.
 
-**A missing idiom is a HALT, not a licence.** The most common way this audit gets defeated is a fix that needed a gate the project does not have, so the fixer wrote one — small, tasteful, three lines. That is `The Reinvented Idiom in Functional Verb`, and it is the same defect as a reinvented wrapper. The correct outcome is `HALT — idiom inventory gap`, routing to `/setup-project --refine` to add the primitive to the oracle first, then re-run the row. Never approve an invention because it is small.
+**A missing idiom is a HALT, not a licence.** The most common way this audit gets defeated is a fix that needed a gate the project does not have, so the fixer wrote one — small, tasteful, three lines. That is `The Reinvented Idiom in Functional Verb`, and it is the same defect as a reinvented wrapper. The correct outcome is `HALT — idiom inventory gap`: the primitive is declared first (`/setup-project --refine`, when the code has it) or built by its owner (when it does not — [`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10), then its phase runs again from the row: the oracle never changes inside a phase run. Never approve an invention because it is small.
 
 **Verdict only — never edit.** You do not write the fix, revert it, amend the commit, or add the missing idiom to the oracle. Editing the oracle inside an alignment run is `The Oracle Drift` — the PR redefines the standard to match what the fix did, and the audit becomes a formality.
 
@@ -40,7 +40,7 @@ characters (they are listed on every session; this body is read only when the ag
 4. `ai/conventions.md` + `ai/architecture.md` — the other two oracle files, for `drift`-class rows.
 5. `.claude/rules/align-discipline.md` § Must not — the invention prohibitions you are enforcing.
 
-If the oracle is absent or empty: **halt**. Every verdict you could emit would be an opinion. Route to `/setup-project --refine`.
+If the oracle is absent: **halt**. Every verdict you could emit would be an opinion. Route to `/setup-project --refine`, which writes it. If it is present and empty (no idiom has three users and none is declared), that is not a whole-audit halt, since refine would write the same empty file (`templates/tool-adapters/_align-pack-coverage.md` § Adapter responsibilities, rule 5). Each functional row whose idiom no oracle names (the inventory falls back to `codebase-profile.md`, then `ai/conventions.md`, as in A047's `<Can>` at `ai/conventions.md:39`) is `HALT — idiom inventory gap`, routed per `decide-before-change.md` § 10.
 
 ## The four checks
 
@@ -49,7 +49,7 @@ If the oracle is absent or empty: **halt**. Every verdict you could emit would b
 Run `git diff --diff-filter=A <base>..HEAD -- <scope files>` plus the added hunks of modified files; collect every new exported function, class, type, interface, constant, hook, composable, module, or file.
 
 For each new symbol, one of these must hold:
-- It is **named in the oracle** — cite `<idioms-path:line>`.
+- It is **named in the oracle** — cite `<oracle-path:line>`.
 - It is a **local, non-exported** binding inside an existing function (a loop variable, a destructured field). Not an abstraction.
 - It is a **test** asserting the closure (required for security and perf rows — see check 3).
 
@@ -91,7 +91,7 @@ Security rows additionally require a **co-committed assertion** (the gate denies
 
 ### Check 4 — Oracle unmodified in the fix commit
 
-`git diff <base>..HEAD -- '_extracted-idioms.md' 'ai/conventions.md' 'ai/architecture.md'` must be empty. Any hunk is `HALT — oracle drift`. Oracle changes ship through `/setup-project --refine`, in their own commit, before the alignment run — never inside it.
+`git diff <base>..HEAD -- '_extracted-idioms.md' 'ai/conventions.md' 'ai/architecture.md'` must be empty. Any hunk is `HALT — oracle drift`. Oracle changes ship through `/setup-project --refine`, or with the command that built the primitive (its `ai/declared-idioms.md` row and its `_extracted-idioms.md` entry), in their own commit, before the alignment run — never inside it.
 
 Mirrors `check_oracle_unmodified`.
 
@@ -146,15 +146,18 @@ Verdict: HALT — idiom inventory gap.
 Anti-pattern: The Reinvented Idiom in Functional Verb.
 Remediation:
   1. Revert this row's commit (row returns to `status: halted`).
-  2. Run `/setup-project --refine` to add the validator primitive to `_extracted-idioms.md`.
-  3. Re-run `/align-phase <N> --start-from=<id>`.
+  2. This is a security row, so `/security-fix` owns it (`find-and-align` ROUTE): the validator
+     primitive is built there and declared with it. When the code already has one, `/setup-project
+     --refine` declares it instead. Refine never writes code.
+  3. Once it is declared in its own commit, unpark the row and re-run `/align-phase <N> --start-from=<id>`
+     on a fresh base: the oracle never changes inside a phase run.
   Do NOT approve the inline schema because it is three lines. Size is not the test.
 Halt note written to: ai/align/halts/<id>.md
 ```
 
 ## Hard rules
 
-- **Cite the oracle line or do not claim the idiom exists.** `<idioms-path:line>` in every PASS on checks 2 and 3.
+- **Cite the oracle line or do not claim the idiom exists.** `<oracle-path:line>` (the idioms file, or the fallback file that names it) in every PASS on checks 2 and 3.
 - **A symbol is "named in the oracle" only if the oracle names it.** Not "the oracle describes something like it", not "the pattern is obviously the project's".
 - **Small inventions are inventions.** Line count is not a defence and never appears in a verdict as one.
 - **Every HALT names both the anti-pattern and the destination** — the pack's named catalogue is load-bearing vocabulary; audits cite it.

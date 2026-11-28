@@ -6,6 +6,81 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### A missing primitive goes where it can be built (2026-11-28)
+
+`/setup-project --refine` re-reads the code and declares what is already there; it never writes
+code. Commands sent a primitive the project lacks to it all the same: a token system, a wrapper,
+a permission, a cache, an API or schema convention. The run then halted on the same line after
+every refine. Behind it were three more gaps, each with the same effect:
+
+- **A unit built on purpose was dropped on every setup run.** Phase 2.5 extracts an idiom only at
+  three or more users. A new wrapper or gate starts with fewer, since the rows that halted for it
+  are the ones that will use it.
+- **No setup phase wrote `§ Tokens`, `§ API conventions` or `§ Schema conventions`.** Every ui-ux
+  command halts without the first, and `/polish`'s API and schema detectors without the others,
+  even in a project that has them.
+- **`/polish` could not introduce what it exists for.** The skills it runs halted on a missing token
+  system or convention, and sent the run to refine.
+
+The fix:
+
+- **`templates/snippets/decide-before-change.md` § 10** (new) is the one routing table. A halt for
+  "the fix needs a primitive no oracle names" asks first whether the code has it:
+  - **in the code** → refine declares it;
+  - **not in the code** → the command that builds that kind, never refine:
+    - tokens, envelopes, error contracts, missing states and naming → `/polish`;
+    - the seven shared surfaces → `/unify-surfaces`; any other shared component →
+      `/add-component`;
+    - a shared helper → `/refactor` or `/add-feature`;
+    - a cache, a queue or a store → `/optimize` or the pack fixer after its audit;
+    - a security gate, validator or sanitiser → `/security-fix`; a permission a feature needs →
+      `/add-feature`;
+  - **a card first** when the primitive adds a moving part or has more than one reasonable shape;
+  - **declared in the same commit** by the command that built it;
+  - **never inside an alignment phase run**, whose oracle is fixed: park, close, build and declare,
+    then unpark and run the phase again from the row.
+- **`ai/declared-idioms.md`** (new, in the baseline) lists the units built on purpose.
+  - **Every builder writes the row:** `/polish`, `/unify-surfaces`, `/add-component`,
+    `/add-feature`, `/refactor`, `/optimize`, `/security-fix`, `/perf-fix`, `/ds-fix` and
+    `/infra-fix`. Each also writes the unit's `_extracted-idioms.md` entry, marked
+    `[declared: ai/declared-idioms.md]`.
+  - **Phase 2.5 always extracts them,** whatever their number of users, under the minimal fallback
+    and `--lightweight` too.
+  - **`audit-setup.sh` C2di** (`scripts/check-declared-idioms.sh`, 17 fixtures) fails a run that
+    drops one or holds a malformed row. A row counts as kept only on a
+    marked line naming its exact path, or as `declared but missing` when the file really is gone.
+    C2di also warns when a token file is on disk with no `§ Tokens`.
+- **Phase 2.5 § Foundations** writes `§ Tokens` from the token source (`design-token-audit`
+  grep 0), plus `§ API conventions` and `§ Schema conventions`.
+  - **An axis is canonical** where one shape holds 80 % of the sites and 90 % of the files added in
+    the last 6 months, the pair `convention-oracle` uses; otherwise it is written `split`.
+  - **The person's `ai/api-conventions.md` and `ai/schema-conventions.md` win** over these measured
+    sections. An axis known only from them renames nothing until the person confirms it.
+- **`/polish` step 4.5** introduces a missing foundation.
+  - **It asks first whether the code has it:** a token file the oracle does not list routes to
+    refine.
+  - **Otherwise it measures and puts the options on a decision card:** leave it, the shape most of
+    the code uses, or a named standard. The card is kept in `ai/dynamic/decisions-pending.md`. It
+    builds the pick and declares it.
+  - **The axes that use it** wait as `awaiting decision`, and leave it marks them skipped.
+  - **A dispatched run** returns `NEEDS_INPUT`, and `--plan` writes the card as `Decide first:`.
+  - **The three skills** return their measurement to it instead of halting.
+- **`/unify-surfaces` 1.1.0** routes a missing token system to `/polish`. An empty `§ Wrappers` is
+  not a halt, since extracting the first wrapper is its job, and a wrapper it makes canonical is
+  declared.
+- **`/align`** and the align pack route a missing idiom by whether the code has it.
+- **`/task` 1.9.1** names `/polish` among the commands that park on a decision card.
+- **Packs:**
+  - align 2.1.0, ui-ux 1.35.0;
+  - backend 2.4.1, database 2.4.1, migration 2.0.3;
+  - frontend 2.2.3, delivery 1.6.1, security 2.5.1;
+  - performance 2.4.1, distributed-systems 2.1.1, infrastructure 2.1.1.
+
+  The docs follow: `docs/REFERENCE.md`, `docs/COMMANDS.md` and the ui-ux tool-adapter coverage
+  note.
+- **Not changed:** the ui-ux sections `§ Surfaces`, `§ Breakpoints`, `§ Voice` and `§ Elevation`
+  still have no setup writer. Without them a detector degrades with a warning; they halt nothing.
+
 ### Decide before you change — evidence, options, then the person's OK (2026-11-27)
 
 Before this, the first solution that came to mind was usually the one built:

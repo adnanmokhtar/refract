@@ -13,7 +13,7 @@ sub-phases:
 note: "Phase 2.6 prose appears textually before Phase 2 body in this file because 2.6 is conceptually a GATE on Phase 2's output (coverage-gap check). Read order: 2.0 → 2.5 → 2.6 (gate) → 2.7-2.12 (REFINE-only deep extraction). The textual ordering is intentional; do not \"fix\" it without also rewiring downstream consumers."
 ---
 
-**Stage-gate concession (extraction artifacts ≠ deliverables)**: The four deep-extraction files this phase can produce (`_extracted-codebase.md`, `_extracted-idioms.md`, `_extracted-business.md`, `_refine-extract.md`) are **CONTEXT for later phases, not user-facing deliverables**. They exist to make Phase 4 generation cheaper and more project-specific. With `--lightweight`, only `codebase-profile.md` is required; the other three are skipped, and Phase 4 reads source directly when it needs deeper detail.
+**Stage-gate concession (extraction artifacts ≠ deliverables)**: The four deep-extraction files this phase can produce (`_extracted-codebase.md`, `_extracted-idioms.md`, `_extracted-business.md`, `_refine-extract.md`) are **CONTEXT for later phases, not user-facing deliverables**. They exist to make Phase 4 generation cheaper and more project-specific. With `--lightweight`, only `codebase-profile.md` is required; the other three are skipped, and Phase 4 reads source directly when it needs deeper detail. One exception: when `ai/declared-idioms.md` has rows, `_extracted-idioms.md` is still written with them and the § Foundations sections (§ Declared units; C2di checks it).
 
 ### Provenance discipline (every extraction artifact — added 2026-06-07)
 
@@ -448,9 +448,36 @@ This used to name three further skills — `extract-composable-idiom`, `extract-
 
 Pass `unit_path` + `unit_kind` + `output_path = .claude/_extracted-idioms.md` per unit. A project matching several patterns runs the skill once per unit per pattern, up to the concurrency cap below. For `wrapper` units the skill is required to name the raw primitive being wrapped — that is precisely the field align's `reinvented-wrapper` detector reads, and a wrapper row without it is unusable downstream.
 
+#### Declared units — always extracted
+
+`ai/declared-idioms.md` lists units a person or a command declared on purpose: a wrapper `/unify-surfaces` or `/add-component` built, a gate `/add-feature` added, a token source `/polish` introduced. A new unit has fewer than three dependents, because the rows that halted for it are the ones that will depend on it. The threshold would drop it on every run, and the command that halted for it would halt again (`templates/snippets/decide-before-change.md` § 10). So:
+
+- **Every row is extracted** with its `kind` as `unit_kind`, whatever its dependent count; the thin-wrapper skip does not apply to it either. Its section is written even when no pattern of that kind matched. A `tokens` row opens `## Tokens` with `- source: <path> [declared: ai/declared-idioms.md]`, and its categories are read under § Foundations below.
+- **Its row in `_extracted-idioms.md`** carries the real dependent count and ends `[declared: ai/declared-idioms.md]`. C2di reads that marker, so a path that survives only in a `[found:]` note is a dropped row.
+- **A row whose path no longer exists** is not extracted. `## Strategy` lists it on its own line, exactly `- declared but missing: <path>`, for the person to remove.
+- **This phase never writes `ai/declared-idioms.md`.** `audit-setup.sh` C2di fails a run unless every declared path is on a line carrying the marker, or on a `declared but missing` line for a file that really is gone.
+
+#### Foundations — tokens, API conventions, schema conventions
+
+The patterns above count dependents. These three are read from where the project defines them, and no other phase writes them. Every ui-ux command halts without `## Tokens`, and `/polish`'s API and schema detectors halt without their conventions. So a project that has them gets them here, in every mode that runs Phase 2.5.
+
+- **`## Tokens`**, when a token source exists. Run `design-token-audit` grep 0 (`templates/packs/ui-ux/skills/design-token-audit/SKILL.md`):
+  - 0b prints the CSS token blocks (`:root`, `@theme`, theme selectors);
+  - 0c prints the whole-file sources (Tailwind config, token JSON, theme constructors);
+  - 0d prints the design-system root;
+  - in native apps, read the theme files (`*Theme*`, `*Colors*`, `*Tokens*` in Dart, Kotlin, Swift).
+
+  Write one `### <category>` per category found (Color, Spacing, Type, Radius, Shadow, Motion, Z-index), each row `- <name or prefix> = <value or scale> [found: <path:line>]`; Type lists its scale steps. With no source, there is no section, and `## Strategy` says `no token source found`.
+- **`## API conventions`**, when the project serves HTTP. One row per axis `api-consistency-audit` reads (field casing, envelope, error shape, pagination, path naming, versioning, ids), from the route table and the response builders.
+  - An axis is canonical when one shape holds at least 80 % of the sites **and** at least 90 % of the files added in the last 6 months (`git log --diff-filter=A --since=6.months`): `- <axis>: <shape> [found: <path:line>] (<n>/<total>)`. The second test catches a project moving away from its old shape, whose old sites still outnumber the new. With no file added in that window, or a shallow clone, the site test decides alone and the row is marked `(history-blind)`, as `convention-oracle` does.
+  - Failing either test, it is written `- <axis>: split — <shape> <n>, <shape> <m>`. A split axis is undeclared: the audit skips it, and `/polish` puts the choice on a decision card.
+- **`## Schema conventions`**, when the project has a schema (migrations, an ORM schema, the schema map). The same rule applies to table and column case, singular or plural tables, key and foreign-key names, timestamps and soft delete.
+
+The two cuts are triage cut-offs, the pair `convention-oracle` uses to call a doc stale (AL-04), not standards. These sections are a measurement: a canonical axis known only from here is confirmed by the person once (`/polish` step 4.5) before an audit renames anything against it. `ai/api-conventions.md`, `ai/schema-conventions.md` and `ai/conventions.md` are the person's decisions: this phase never writes them, and the audits read them first.
+
 #### Always-write fallback
 
-If NO patterns matched (greenfield project, single-file scripts, very small codebase) → still write `_extracted-idioms.md` with a minimal structure. Note the precondition: this fires only on **no match**, so it never covered the "matched a pattern, had no extractor" hole above — that hole is closed by the dispatch table, not by this fallback.
+If NO patterns matched (greenfield project, single-file scripts, very small codebase) → still write `_extracted-idioms.md` with a minimal structure. The minimal file still carries every declared unit (§ Declared units) and every § Foundations section the project has: "no load-bearing pattern" says nothing about a declared wrapper or a token file. Note the precondition: this fires only on **no match**, so it never covered the "matched a pattern, had no extractor" hole above — that hole is closed by the dispatch table, not by this fallback.
 
 ```yaml
 # _extracted-idioms.md (minimal — no load-bearing patterns yet)
@@ -458,7 +485,8 @@ project_kind: <detected>
 extraction_strategy: minimal
 patterns_matched: []
 idioms: []
-note: "No load-bearing idioms detected (insufficient code volume OR functional-style without ≥3 dependents). Re-run /setup-project --refine after the codebase grows."
+note: "No load-bearing idioms detected (insufficient code volume OR functional-style without ≥3 dependents). A unit built on purpose is listed in ai/declared-idioms.md; re-running refine alone writes this same file."
+# + the sections of any declared unit, and ## Tokens / ## API conventions / ## Schema conventions when present
 ```
 
 This ensures downstream consumers (`/align-scan`, `/migration-recheck`, etc.) ALWAYS find the file. No more silent skips.
@@ -486,25 +514,38 @@ approved_hash:        # body hash at approval time — /setup-project-health pri
 ## Strategy
 <brief explanation of which patterns were extracted and why>
 
-## Wrappers (only if shared-wrappers pattern matched)
+## Wrappers (only if shared-wrappers pattern matched, or a unit of this kind is declared)
 - <WrapperName> (<path>) — <one-line role> — <count> usage sites
 - ...
 
-## Composables / Hooks (only if composables pattern matched)
+## Composables / Hooks (only if composables pattern matched, or a unit of this kind is declared)
 - <useName> (<path>) — <one-line role> — <count> callers
 - ...
 
-## Shared services (only if shared-services pattern matched)
+## Shared services (only if shared-services pattern matched, or a unit of this kind is declared)
 - <serviceName> (<path>) — <one-line role> — <count> importers
 - ...
 
-## Base classes (only if class-inheritance pattern matched)
+## Base classes (only if class-inheritance pattern matched, or a unit of this kind is declared)
 - <BaseClass> (<path>) — <count> extenders — <one-line role>
 - ...
 
-## Type primitives (only if type-system pattern matched)
+## Type primitives (only if type-system pattern matched, or a unit of this kind is declared)
 - <TypeName> (<path>) — <count> instantiation sites — <one-line role>
 - ...
+
+## Tokens (only if a token source exists — § Foundations)
+### Color
+- <name or prefix> = <value or scale> [found: <path:line>]
+### Type
+- <scale steps> [found: <path:line>]
+
+## API conventions (only if the project serves HTTP — § Foundations)
+- <axis>: <shape> [found: <path:line>] (<n>/<total>)
+- <axis>: split — <shape> <n>, <shape> <m>
+
+## Schema conventions (only if the project has a schema — § Foundations)
+- <axis>: <shape> [found: <path:line>] (<n>/<total>)
 
 ## Conventions (always)
 - Naming: <project's naming convention> [found: <path:line> | inferred: <basis>]
@@ -527,13 +568,13 @@ approved_hash:        # body hash at approval time — /setup-project-health pri
 - `/setup-project-health` check 9 reports: empty stamp → `warn` ("oracle never human-reviewed"); hash mismatch → `warn` ("oracle changed since approval by <name>@<date>"); `[unconfirmed]` count > 0 → `warn` with the list.
 - Approval is **advisory** (`warn`, never `fail`) — solo projects can ignore it; teams get a visible "the oracle was reviewed by <who> at <when>" guarantee before audits build on it.
 
-**Skip individual idiom (not the whole file) when**: idiom has <3 dependents (insufficient signal — not load-bearing) OR idiom is a thin wrapper (<50 lines AND no automatic behaviors AND no override hooks).
+**Skip individual idiom (not the whole file) when**: idiom has <3 dependents (insufficient signal — not load-bearing) OR idiom is a thin wrapper (<50 lines AND no automatic behaviors AND no override hooks). Never a unit `ai/declared-idioms.md` lists (§ Declared units).
 
 **Why this exists**: without it, Phase 4 has nothing project-specific to say. Pack templates carry generic prose; injection of file paths in Phase 4.6 helps but doesn't fix the core gap (the body still reads as generic). Phase 2.5 + Phase 4.2-AUTHOR together flip the model: **packs become topic checklists; the codebase becomes the source of content.** And — critical for Composition-API / functional projects — extraction now matches the project's actual idiom shape, not just OOP inheritance.
 
 ### Phase 2.7–2.12 — Lightweight gate + cost cap (shared across deep-extraction phases)
 
-**Lightweight gate**: Phases 2.7–2.12 run ONLY when (a) mode = REFINE AND (b) `--lightweight` flag is NOT set. With `--lightweight`, Phase 2.5 caps at 3 base classes (sample, don't walk all) — this is a sample like any other and must be disclosed, not merely applied: the run records `[SAMPLED: 3/<bases with ≥3 extenders> bases]` on `## Base classes` and names `--lightweight` as the cap in `walk_scope` (`extract-codebase-overview § Step 2.5`). A shallow extraction that reads as a complete one is the failure this whole discipline exists to prevent, and `--lightweight` was previously the one cap no artifact recorded. Output: condensed `.claude/codebase-profile.md` only. Skip the three deep-extraction files (`_extracted-idioms.md`, `_extracted-business.md` deep portion, `_refine-extract.md`) — Phase 4.6/4.7 are also skipped per `phase-1-detect-mode.md`.
+**Lightweight gate**: Phases 2.7–2.12 run ONLY when (a) mode = REFINE AND (b) `--lightweight` flag is NOT set. With `--lightweight`, Phase 2.5 caps at 3 base classes (sample, don't walk all), and never drops a declared unit: when `ai/declared-idioms.md` has rows, `_extracted-idioms.md` is still written with them and the § Foundations sections (C2di checks it) — this is a sample like any other and must be disclosed, not merely applied: the run records `[SAMPLED: 3/<bases with ≥3 extenders> bases]` on `## Base classes` and names `--lightweight` as the cap in `walk_scope` (`extract-codebase-overview § Step 2.5`). A shallow extraction that reads as a complete one is the failure this whole discipline exists to prevent, and `--lightweight` was previously the one cap no artifact recorded. Output: condensed `.claude/codebase-profile.md` only. Skip the three deep-extraction files (`_extracted-idioms.md` unless declared rows exist, as above; `_extracted-business.md` deep portion; `_refine-extract.md`) — Phase 4.6/4.7 are also skipped per `phase-1-detect-mode.md`.
 
 
 

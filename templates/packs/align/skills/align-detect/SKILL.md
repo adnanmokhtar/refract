@@ -239,7 +239,7 @@ A detector that did not run and a detector that found nothing both produce zero 
 
 - **A row is a site a detector found, with an oracle that resolves.** One site, one row. Never `~8 raw imports`.
 - **Class before verb.** The class comes from the detector and the ledger table; the verb comes from the class. A verb chosen to make a row closable is how a security row acquired a structural verb in the old skill.
-- **Never invent an oracle or an idiom.** `shared_equivalent` names a wrapper an oracle row declares. A needed primitive that no oracle names is a missing-idiom halt for that row (`/setup-project --refine`). A capability the wrapper lacks is a gap for `/unify-surfaces`.
+- **Never invent an oracle or an idiom.** `shared_equivalent` names a wrapper an oracle row declares. A needed primitive that no oracle names is a missing-idiom halt for that row (declared by `/setup-project --refine` when the code has it, built by its owner when it does not — `decide-before-change.md` § 10). A capability the wrapper lacks is a gap for `/unify-surfaces`.
 - **Report every denominator.** All 34 AL rows, the align denominator, the owner denominator.
 
 ## Notes

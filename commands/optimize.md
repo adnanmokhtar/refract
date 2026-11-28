@@ -124,7 +124,7 @@ Silent except the decision cards (steps 1.7 and 6.5): an architectural move or a
 
 9. **Halt only on genuine blockers**:
    - Architectural move would change observable behaviour where it must be preserved (re-classify as refactor; user decides).
-   - Not a halt: a fix that needs a primitive the project lacks (e.g., caching with no cache primitive). Such a fix is a decision (round 2, step 6.5); once picked, the option builds the primitive in the project's own shape, with its ADR, and `/setup-project --refine` afterwards records the new idiom.
+   - Not a halt: a fix that needs a primitive the project lacks (e.g., caching with no cache primitive). Such a fix is a decision (round 2, step 6.5); once picked, the option builds the primitive in the project's own shape, with its ADR, and declares it in the same commit: its `_extracted-idioms.md` entry and an `ai/declared-idioms.md` row of kind `service` (`decide-before-change.md` § 10).
    - **New dependency required for a perf fix** — a fix that pulls in a package the project doesn't already use (caching client, faster parser, a utility lib for one micro-opt) is held for round 2 (step 6.5). Its card carries the dependency review (maintenance / license / size / supply-chain) in its risks, and an already-present primitive or the stdlib as an option; a 2% perf win is rarely worth a new transitive tree. Decision recorded in `ai/optimize/decisions.md` and the run summary; a picked dependency is a moving part, so it also gets an ADR ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 9).
    - Security-sensitive change beyond mechanical fix.
    - Cyclic dependency that requires multi-PR decoupling (surfaces a small plan).

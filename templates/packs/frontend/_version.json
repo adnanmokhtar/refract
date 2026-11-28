@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "2.2.2",
-  "released": "2026-11-02",
+  "version": "2.2.3",
+  "released": "2026-11-28",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "api-contract-sentry: `--type vue` is declared with `--type-add` first — ripgrep 14 has no built-in vue type, so the grep errored and read as zero hits.",
+  "summary": "/add-component declares the component, as a `wrapper` row in the same commit: its _extracted-idioms.md entry and an ai/declared-idioms.md row, so the next /setup-project run keeps it.",
   "changelog": "CHANGELOG.md"
 }

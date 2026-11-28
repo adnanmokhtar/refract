@@ -59,7 +59,7 @@ The pack's gates each protect a decision. This command resolves each one **mecha
 **What still HALTs** — the short list, and it is short on purpose:
 
 1. **Blocked render.** An auth-gated route that renders a login wall, a blank shell, or a bot wall. Scoring it would be a lie; `SKIPPED (no harness)` is not available as a silent state. Fix the session, re-run.
-2. **No token source.** `_extracted-idioms.md § Tokens` absent or empty. There is no language to work inside and no evidence to decide with → route to `/setup-project --refine`.
+2. **No token source.** `_extracted-idioms.md § Tokens` absent or empty. There is no language to work inside and no evidence to decide with → route to `/setup-project --refine` when the code has tokens, or to `/polish`, which introduces them, when it has none ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10).
 3. **Dirty tree or red CI at HEAD.** `git` is the rollback; it has to mean something.
 4. **A fix that re-detects after being applied** (Phase 8). Flipped `halted`, surfaced, never silently re-attempted.
 5. **`--reimagine` asked for on a multi-theme app** — that is `/add-theme-variant`'s slot system, and inventing a language in place would edit the shared layer.

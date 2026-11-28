@@ -33,7 +33,7 @@ This skill is the **frontend half of `/polish`** — the structural twin of `api
 |---|---|---|
 | Codebase root | Orchestrator | YES |
 | `PROJECT_KIND` (must be `frontend-*` or `mobile-*`) | `_extracted-codebase.md § Gold standards` | YES |
-| Design tokens | `_extracted-idioms.md § Tokens` (color / spacing / type / radius / shadow / motion) | YES (without it, the canonical token set is unknown — halt) |
+| Design tokens | `_extracted-idioms.md § Tokens` (color / spacing / type / radius / shadow / motion) | YES (without it, the canonical token set is unknown — halt; under `/polish`, return the raw values per category for its step 4.5) |
 | Shared wrappers | `_extracted-idioms.md § Wrappers` | YES (without it, `unify-component` / `extract-pattern` cannot run) |
 | Surface prototypes | `_extracted-idioms.md § Surfaces` | NO (when missing, `normalize-surface` falls back to its **built-in composite-surface table-stakes** catalog for data-table / dashboard — see verb 19 — instead of skipping; warn that the generic floor, not a project prototype, is in use) |
 | Voice guide | `_extracted-idioms.md § Voice` | NO (skip voice-related closures; warn) |
@@ -470,7 +470,7 @@ The composite surfaces the primitive-level contracts (`design-system-architect` 
 - **Token doesn't exist for the value** (during `consolidate-tokens`) → switch to `extract-token` instead.
 - **Off-scale font-size is intentional** (during `apply-type-scale`) → halt; surface to designer; do NOT auto-snap.
 - **Playwright not wired** → run in `--no-visual-verify`; mark each row `pending-review`; surface to user.
-- **Project has no design-token system at all** → halt the entire skill run; route to `/setup-project --refine` to populate `_extracted-idioms.md § Tokens` first.
+- **Project has no design-token system at all** → under `/polish`, not a halt: return the raw values per category with their counts, and `/polish` step 4.5 puts a first scale on a decision card. Called from anywhere else, halt the run and route to `/polish` (`decide-before-change.md` § 10). Tokens the code has but `_extracted-idioms.md § Tokens` lacks → `/setup-project --refine`.
 
 ## Examples per verb
 

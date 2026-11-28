@@ -114,11 +114,11 @@ Thresholds are the pack's defaults; a project may override them in `ai/conventio
 | **any row `parked` with `prior_status` or `prior_phase` empty** | **unrevivable** | `/align-unpark --list-unrevivable`; no command can restore this row |
 | row `pending-review` > the review timeout (default 7d) | awaiting sign-off | surface the reviewer; never auto-approve |
 | days since last gate PASS > 30 | sweep stalling | `/align-replan` or re-scope |
-| same halt reason on ≥ 3 rows | systemic | `/setup-project --refine` — usually a missing idiom |
+| same halt reason on ≥ 3 rows | systemic | usually a missing idiom: `/setup-project --refine` when the code has it, its owner when it does not (`decide-before-change.md` § 10) |
 
 **Four of these rows exist because `parked` is the only status change that removes a row from every other escalation in the pack.** After a park, `/align-gate` stops blocking on the row, its halt file moves to `halts/parked/` (so the systemic-reason count below stops seeing it), and any SLA keyed on `halted` stops firing. Without a `parked` SLA of its own, a dropped permission gate can be parked once and never surface again except as an undifferentiated `PARTIAL` in the final report — which is `The Silent Park` in `ai/patterns/align-guardrails.md`. **Age a parked HIGH row from `parked_sla_from`, never from `parked_at`**: otherwise parking resets the clock, which is exactly the capability park must not have.
 
-The systemic row is the highest-value output of this audit. A `halts/` directory full of `missing idiom: <X>` is `The Idiom Inventory Gap`, and the fix is to update the oracle once rather than to keep halting rows one at a time. **Count `halts/parked/` alongside `halts/` when computing it** — a reason that was parked three times is more systemic than one that halted three times, not less.
+The systemic row is the highest-value output of this audit. A `halts/` directory full of `missing idiom: <X>` is `The Idiom Inventory Gap`, and the fix is to close the gap once (declare the idiom, or have its owner build it first — `decide-before-change.md` § 10) rather than to keep halting rows one at a time. **Count `halts/parked/` alongside `halts/` when computing it** — a reason that was parked three times is more systemic than one that halted three times, not less.
 
 ## Output format
 
@@ -154,7 +154,9 @@ A014  pending-review 9d, reviewer <name>                       → awaiting sign
 
 ### Systemic
 `missing idiom: <cache primitive>` appears on 4 halted rows (A019, A027, A033, A041)
-  → the oracle is short one primitive. Run /setup-project --refine before resuming.
+  → the project is short one primitive. A cache is a moving part: /optimize puts it on a
+    decision card first (the row stayed in align because the performance pack is absent).
+    Once built, it is declared with an ai/declared-idioms.md row.
 
 No writes performed.
 ```

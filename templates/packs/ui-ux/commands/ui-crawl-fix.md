@@ -31,13 +31,13 @@ Bugs that need human judgment (broken dialog triggers, page won't load, network 
 - Without a fresh `/ui-crawl` report (input is missing).
 - For behavioral bugs (broken triggers, page errors) — those need human eyes.
 - For visual polish — use `/enhance-ui`.
-- For new abstractions — this command never invents wrappers; if `_extracted-idioms.md` doesn't name the gold-standard helper, halt and route to `/setup-project --refine`.
+- For new abstractions — this command never invents wrappers. If `_extracted-idioms.md` doesn't name the gold-standard helper, halt: `/setup-project --refine` declares one the code already has, and one it lacks is built by its owner first ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10).
 
 ## Auto-fixable classes (safe-list)
 
 | axe rule / pattern | Closure verb | Fix shape | Risk |
 |---|---|---|---|
-**Every wrapper name and helper name below is a ROLE, not a path.** The concrete file for each role comes from `_extracted-idioms.md § Wrappers`; the names in this table are illustrative placeholders for "whatever this project calls its form-field wrapper / row-action wrapper / sanitize helper". If a role has no named owner in idioms, that row halts and routes to `/setup-project --refine` — it is never invented here.
+**Every wrapper name and helper name below is a ROLE, not a path.** The concrete file for each role comes from `_extracted-idioms.md § Wrappers`; the names in this table are illustrative placeholders for "whatever this project calls its form-field wrapper / row-action wrapper / sanitize helper". If a role has no named owner in idioms, that row halts — it is never invented here. The code has it → `/setup-project --refine` declares it; it does not → its owner builds it first ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10).
 
 | axe rule / pattern | Closure verb | Fix shape | Risk |
 |---|---|---|---|
@@ -45,7 +45,7 @@ Bugs that need human judgment (broken dialog triggers, page won't load, network 
 | `label` missing `for`/`id` linkage in the project's **form-field wrapper** | `replace-with-shared` | Auto-wire the wrapper's generated id to its inner input | Low |
 | Raw library dialog / dropdown / multiselect used directly in pages (PrimeVue, MUI, Vuetify, Ant, shadcn — whichever this project ships) | `replace-with-shared` | Swap to the project's own wrapper for that role | Medium (call sites; **pixel-changing** — visual regression gated by the Phase 3 before/after diff) |
 | Raw-HTML injection without a sanitize wrapper — `v-html`, `dangerouslySetInnerHTML`, `[innerHTML]`, `{@html}` | `add-validator` (security) | Wrap the value with the project's sanitize helper from `_extracted-idioms.md` | Low (security row; gets a test assertion) |
-| Hardcoded per-locale literal maps in code (`{ en: '', ar: '' }`) | `replace-with-shared` | Replace with the project's own empty-translations builder / locale factory, named in `_extracted-idioms.md § Voice / locales`. **If idioms names no such helper, HALT this row** — do not invent an API name, and do not assume one exists because it would be convenient | Low |
+| Hardcoded per-locale literal maps in code (`{ en: '', ar: '' }`) | `replace-with-shared` | Replace with the project's own empty-translations builder / locale factory, named anywhere in `_extracted-idioms.md` (usually `§ Shared services`; `§ Voice / locales` has no setup writer, and a factory a command built is declared as a `service` row). **If idioms names no such helper, HALT this row** — do not invent an API name, and do not assume one exists because it would be convenient | Low |
 | `<a target="_blank">` missing `rel="noopener noreferrer"` | `replace-with-shared` | Swap the raw anchor for the project's declared external-link wrapper or link helper (`_extracted-idioms.md § Wrappers`), which sets `rel` | Low. No such wrapper declared → the row is reverse tab-nabbing, a security class: route to `/security-fix` (security pack, always installed), never inject `rel` here under a validator verb |
 | Empty `catch { }` swallow | `replace-with-shared` | Route through project's error handler | Medium (read each catch; some are intentional) |
 
@@ -69,7 +69,7 @@ Bugs that need human judgment (broken dialog triggers, page won't load, network 
 - Verify `ai/audits/ui-crawl-findings.json` exists and is < 24h old (else suggest `/ui-crawl` first).
 - **Clean tree required.** Refuse to start on a dirty working tree — HALT and ask the user to commit or stash first. Every fix lands as a discrete commit and regression rollback is `git revert`; on a dirty tree each per-class commit would sweep in unrelated staged/unstaged work, and a revert-on-regression would roll that work back too. Relaxed ONLY under `--dry-run` / `--plan` (read-only — nothing is committed).
 - **Snapshot the "old" side before any edit.** Copy the input findings JSON to `ai/audits/ui-crawl-findings.pre-fix.json` — Phase 3 diffs the re-crawl against THIS snapshot, because the re-crawl overwrites the live `ui-crawl-findings.json` (the same path Phase 1 read as input), destroying the old side otherwise. Likewise, the input crawl's screenshots at `tests/crawl/.screenshots/` are the BEFORE baseline for the pixel-changing classes (contrast-token swap, raw→shared-component swap) — copy them to `tests/crawl/.screenshots-pre-fix/` so the Phase 3 visual diff has a reference the re-crawl will not clobber.
-- Verify `_extracted-idioms.md` populated (else halt; route to `/setup-project --refine`).
+- Verify `_extracted-idioms.md` present (else halt; route to `/setup-project --refine`). A file that names no wrapper yet is not a halt: each class whose fix needs one halts per row (§ Hard rules).
 - Read `align-discipline.md`'s closure-verb vocabulary. **It ships with the align pack — if the file is absent, degrade: fall back to the inline `## Hard rules` block below (which restates the discipline floor), or HALT with a clear message. Never silently no-op** — a missing discipline rule must not read as "no discipline."
 
 ### Phase 1 — Triage
@@ -86,7 +86,7 @@ For each approved class:
    - Read the file in full.
    - Identify the minimal change that closes the class for ALL its call sites.
    - Apply (typed-only, no `any`).
-   - **i18n gate (any injected i18n key — e.g. the `button-name` `aria-label`).** Before injecting an `aria-label` (or any user-visible string) from an i18n key, assert the key RESOLVES in EVERY shipped locale: read the project's locale tree (from `_extracted-idioms.md § Voice / locales`) and confirm the key is present in each. A key missing from any locale renders its RAW string (`SETTINGS_MENU`, `actions.edit`) as the accessible name — a NEW a11y defect dressed up as a closed finding. Missing in any locale → HALT that row: add the key to all locales first (or route to `/setup-project --refine` if no key exists for it); NEVER inject a key that resolves in only some locales.
+   - **i18n gate (any injected i18n key — e.g. the `button-name` `aria-label`).** Before injecting an `aria-label` (or any user-visible string) from an i18n key, assert the key RESOLVES in EVERY shipped locale: read the project's locale tree (the locales its i18n library loads, named in `codebase-profile.md` item 10, i18n; `§ Voice / locales` when a person wrote it) and confirm the key is present in each. A key missing from any locale renders its RAW string (`SETTINGS_MENU`, `actions.edit`) as the accessible name — a NEW a11y defect dressed up as a closed finding. Missing in any locale → HALT that row: add the key to all locales first. A key that exists in no locale is new copy: the person or `/frontend-fix` writes it, never refine, which writes no code or copy; NEVER inject a key that resolves in only some locales.
 3. Run typecheck + lint on touched files.
 4. Run scoped Vitest suite for the wrapper (if exists).
 5. Commit with conventional message: `fix(<class>): <verb> <wrapper> — closes <N> findings across <M> routes`.
@@ -132,7 +132,7 @@ For each approved class:
 ## Hard rules (inherited from align-discipline.md)
 
 - **One finding-class = one commit.** Mixing classes in one commit hides which fix caused which delta.
-- **No new abstractions.** If the fix needs a new wrapper, halt; route to `/setup-project --refine` to add the wrapper to idioms first.
+- **No new abstractions.** If the fix needs a wrapper the idioms do not name, halt that row. The code has it → `/setup-project --refine` declares it. It does not → `/unify-surfaces` extracts it (its seven categories) or `/add-component` builds it; a sanitize helper belongs to `/security-fix` (`decide-before-change.md` § 10). Refine never builds one.
 - **Behaviour preservation for structural classes.** Re-run scoped tests; coverage must not drop (tolerance 0.5%).
 - **Security findings ship with assertions.** The `add-validator` sanitize wrap co-commits a test; a `noopener` row with no declared link wrapper is `/security-fix`'s, not this command's.
 - **A design-token value is never edited here.** Contrast rooted in a token is `/polish lift-contrast`'s (a visible change that needs a named human approval), and the token source is the design system's oracle.

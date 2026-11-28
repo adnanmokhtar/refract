@@ -912,7 +912,7 @@ Properties:
 
 The align pack is **declared-convention enforcement**: it finds live sites that break a convention the project already declares — a lint rule at `error`, a human-written line in `ai/conventions.md`, an ADR, the glossary, the token set, a named wrapper — proves each against the line that declares it, and closes the align-owned rows with EQ / VC / FN proof. 34 classes, AL-01…AL-34, one owner each (`align-detect` § The class ledger). Its own detectors are `convention-oracle` (AL-01–04: invented, split, unenforced, stale doc), `wrapper-adoption-scan` (AL-11, 13, 14, 15, 22), `naming-layout-scan` (AL-16–19) and `convention-ratchet-scan` (AL-29–32); tokens, layers, API contracts, i18n and a11y are dispatched to ui-ux, code-quality, backend and frontend when those packs are installed. Security, performance, data, error handling, dead code, SOLID and complexity are not align classes: they print owner lines and route to `/security-fix`, `/perf-fix`, `/db-fix`, `/quality-fix`.
 
-**Precondition**: a declared convention. The inventory falls back `_extracted-idioms.md` → `codebase-profile.md` → `ai/conventions.md`; with none, every align class prints `N/A (no declared convention)` — run `/setup-project --refine`. Never a halt.
+**Precondition**: a declared convention. The inventory falls back `_extracted-idioms.md` → `codebase-profile.md` → `ai/conventions.md`; with none, every align class prints `N/A (no declared convention)` — run `/setup-project --refine` when the code follows conventions it has not extracted. With none, there is nothing to enforce: `/polish` introduces tokens, envelopes and API or schema naming, and any other convention is the person's line in `ai/conventions.md`. Never a halt.
 
 #### Phased flow (manual — interactive checkpoints)
 
@@ -1288,7 +1288,7 @@ Tests: 487/487  Visual-regression: target-only  Bundle: -2.1%  a11y: 81 → 96
 ### Pre-requisites
 
 - `PROJECT_KIND` is `frontend-*` (or `mobile-web` / `mobile-rn`). Halts on backend / data / library / CLI.
-- `_extracted-idioms.md § Wrappers` populated (the canonical-shape oracle).
+- `_extracted-idioms.md` present. `§ Wrappers` may be empty: extracting the first wrapper is this command's job.
 - Mechanical CI green; working tree clean (or `--allow-dirty`).
 - Playwright MCP wired (visual-regression gate; soft-fails to text-only).
 

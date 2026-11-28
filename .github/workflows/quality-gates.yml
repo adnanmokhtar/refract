@@ -726,3 +726,10 @@ jobs:
             echo "── $v"
             bash "$v" --self-test
           done
+
+      # A unit built on purpose (a wrapper, a gate, a token source) has fewer than three users, so
+      # Phase 2.5's extraction threshold dropped it on every /setup-project run and the command that
+      # had halted for it halted again. ai/declared-idioms.md forces it in; audit-setup.sh C2di proves
+      # the run kept it, and this pins C2di on the cases that decide a run.
+      - name: Declared idioms survive a setup run (C2di)
+        run: bash scripts/test-check-declared-idioms.sh

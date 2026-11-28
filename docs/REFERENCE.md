@@ -691,7 +691,7 @@ Each row goes through `find-and-align` (mirrors `find-and-fix` for migration, wi
 | Structural (5) | `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared` |
 | Functional (16) | `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename` |
 
-A verb outside this list = NOT alignment. Route to [`/refactor`](../commands/refactor.md) / `/setup-project --refine` / a feature flow. The security, perf and validation verbs serve only the owner carve-out (the performance or database pack absent, an idiom the oracle names, a baseline measured by a failing-first test); an owner row is otherwise routed.
+A verb outside this list = NOT alignment. Route to [`/refactor`](../commands/refactor.md) / the primitive's owner ([`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 10) / a feature flow. The security, perf and validation verbs serve only the owner carve-out (the performance or database pack absent, an idiom the oracle names, a baseline measured by a failing-first test); an owner row is otherwise routed.
 
 **Functional verbs USE declared idioms.** An `add-gate` uses the project's declared gate (`<Can>` or its equivalent); a `rename` applies the declared naming rule. Inventing a NEW gate / wrapper / helper is forbidden — `check_added_lines_cite_idioms` and `check_no_new_symbols` halt the gate.
 
@@ -750,12 +750,13 @@ Returns non-zero on any fail. Wire into pre-commit / CI / tool-specific hook (Cl
 
 ### Idiom-gap recovery
 
-If `/align-phase` halts repeatedly with `missing-idiom` reasons (e.g., several AL-15 rows need a permission gate the project never declared), the right move is NOT to invent the idiom inline — it's to declare it:
+If `/align-phase` halts repeatedly with `missing-idiom` reasons (e.g., several AL-15 rows need a permission gate the project never declared), the right move is NOT to invent the idiom inline. When the code has it, declare it; when it does not, its owner builds it first (`/add-feature` or `/security-fix` for a permission gate — [`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 10), then declare it:
 
 ```
 /align-park <id> --blocker=idiom-missing
 ... (close current phase if other rows are fixable)
-/setup-project --refine                   # declare the missing idiom (a human ratifies generated lines)
+/add-feature <the gate>                   # build it when the code lacks it, with its ai/declared-idioms.md row
+/setup-project --refine                   # declare the idiom the code now has (a human ratifies generated lines)
 ... (review the refined idioms)
 /align-unpark <id>                        # revive the parked finding
 /align-phase <N> --start-from=<id>        # retry
@@ -956,7 +957,7 @@ The command figures out what step you're on automatically — just keep running 
 - `§ Breakpoints` — responsive breakpoints (default: 360 / 768 / 1280).
 - `§ Voice` (optional) — tone of voice guide for cross-page coherence detector.
 
-If anchors missing → run `/setup-project --refine` first.
+If `§ Tokens` or `§ Wrappers` is missing → run `/setup-project --refine` first: it writes `§ Tokens` from the project's token source, and `§ Wrappers` from wrappers with three users or a row in `ai/declared-idioms.md`. A project with no token system → `/polish` introduces one first. `§ Surfaces`, `§ Breakpoints` and `§ Voice` have no setup writer; they are written by hand, and without them a detector degrades with a warning (breakpoints default to 360 / 768 / 1280).
 
 ### Pre-requisites
 
@@ -1018,7 +1019,7 @@ Broken dialog triggers · horizontal overflow at any breakpoint · page didn't l
 
 - **No fixes during `/ui-crawl`.** It's read-only against the running app.
 - **One finding-class = one commit** (inherited from `align-discipline.md`).
-- **No new abstractions.** If a fix needs a wrapper that doesn't exist in `_extracted-idioms.md`, halt; route to `/setup-project --refine`.
+- **No new abstractions.** If a fix needs a wrapper that doesn't exist in `_extracted-idioms.md`, halt. The code has it → `/setup-project --refine` declares it; it does not → `/unify-surfaces` or `/add-component` builds it first.
 - **Re-detect mandatory.** `--verify` re-crawls affected modules; gap-count parity (closed == in-count) is the gate.
 - **Halt on regression.** New findings after a fix → revert the commit and surface.
 

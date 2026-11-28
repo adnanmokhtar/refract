@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "2.4.0",
-  "released": "2026-11-27",
+  "version": "2.4.1",
+  "released": "2026-11-28",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/fix-bug puts a fix that needs something the project does not run today (a dependency, a store, a queue, a cache, a job) on a decision card before it is built: the existing primitive first, the dependency review in its risks, no leave-it option; the pick lives in ai/runs/<run-id>/decision.md.",
+  "summary": "api-consistency-audit: under /polish a missing or split API convention returns the measured shapes for polish's step-4.5 card instead of halting; ai/api-conventions.md, the person's decision, wins over the measured section.",
   "changelog": "CHANGELOG.md"
 }

@@ -9,6 +9,19 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.1 — 2026-11-28
+
+**`schema-consistency-audit`: a missing schema convention goes where it can be chosen.**
+- **Under `/polish`,** no conventions source is not a halt. The skill returns S2's name
+  profile, and `/polish` step 4.5 puts the choice on a decision card (`templates/snippets/decide-before-change.md` § 10).
+- **Under `/db-audit`,** the Conventions row stays `blocked (no conventions file)`.
+- **Sources:** `ai/schema-conventions.md` and `ai/conventions.md`, the person's decisions, win
+  over the `§ Schema conventions` setup now measures. S1 reads them first. A `split` axis there
+  is undeclared, and an axis known only from that section renames nothing until the person
+  confirms it.
+- **Grandfathering** binds from the person's file, its ADR or a `binds from:` line (`/polish`
+  writes it from the card), never from the measured section, which every setup run rewrites.
+
 ## 2.4.0 — 2026-11-27
 
 **Decide before you change** (`templates/snippets/decide-before-change.md`).

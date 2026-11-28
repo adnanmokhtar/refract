@@ -167,6 +167,8 @@ State the root cause in one line (`refute-before-report.md § 6`): "the base pro
 ### Commit (one finding = one commit, only where the repo allows it)
 Read the convention first (recent `git log`, a protected or PR-only branch, a no-commit rule in `CLAUDE.md` or `CONTRIBUTING`). Where commits are allowed: `fix(ds): <what a redelivery, a crash or a retry could do> — <finding id>`, for example `fix(ds): a redelivered receipt job sent a second email — DS-02`. Otherwise **leave the change staged and say so**.
 
+**A shared unit the fix built** (an outbox, an idempotency store, a lock client that other code will reuse) is declared in the same commit ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10): its entry in `.claude/_extracted-idioms.md`, ending `[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md` (kind `wrapper` for a component, `composable` for a hook, `service` for a client or helper). A new unit has fewer than three users: without the row, the next `/setup-project` run drops it, and the row that halted for it halts again.
+
 ## Phase 5 — Update
 - Update `ai/audits/<date>-distributed*.md` in place, or write a `-fix.md` companion: mark each finding and append the closure table.
 - `ai/dynamic/changelog.md`: `Distributed fix on <scope>: C closed, S staged, P probe-written (docker owed), N no-data (L-tier), E escalated, D deferred`.

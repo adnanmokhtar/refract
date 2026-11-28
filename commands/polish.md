@@ -167,12 +167,32 @@ Examples:
 /polish the login page --direction="cleaner padding, stronger CTA"  # frontend with iteration hint
 ```
 
-## What happens internally (silent)
+## What happens internally (silent, but for a decision card)
 
 1. **Detect stack** — read `PROJECT_KIND` from `_extracted-codebase.md § Gold standards`. If `unknown`, halt with "set PROJECT_KIND first via `/setup-project --refine`".
 2. **Dispatch the right skill set** per the stack-conditional table above.
 3. **Audit** — runs the stack's detectors across the scope. Captures baselines (visual screenshots for frontend; OpenAPI snapshot for backend; schema dump for data; per-platform surface tree for mobile).
 4. **Resolve scope** — semantic resolution.
+4.5. **Foundation — a primitive the project lacks.** For each axis the scope touches (the token set; the API envelope, error contract and naming; the schema naming):
+   0. **Is it in the code?** This is [`decide-before-change.md`](../templates/snippets/decide-before-change.md) § 10's first question. Read where the project defines it: the token source (`design-token-audit` grep 0), `ai/api-conventions.md`, `ai/schema-conventions.md`, `ai/conventions.md`, and the measured `_extracted-idioms.md` sections (`templates/phases/phase-2-profile.md` § Foundations).
+      - **The person's file names it, or, for tokens, `§ Tokens` lists the token source on disk** → no card; steps 5–6 use it. A token file is the code's own definition, not a statistical measurement.
+      - **A source on disk the oracle does not list** (a `tokens.css` and no `§ Tokens`, from a setup older than § Foundations) → not a foundation. That axis halts with "`/setup-project --refine` writes `§ Tokens` from <path>"; the rest of the run continues.
+      - **An API or schema axis known only from the measured section** → the card in sub-step 2, with option 1 the measured shape. The person confirms it once, and the confirmed shape is written to their file before any rename runs against it.
+      - **No source, or an axis written `split`** → sub-steps 1–4.
+   1. **Measure** what the code has. The skill does not halt under `/polish`; it returns its measurement: `ui-design-sweep` the raw values per category with counts, `api-consistency-audit` the shapes its endpoint registry finds, `schema-consistency-audit` S2's name profile.
+   2. **Card** (§ 10; store `ai/dynamic/decisions-pending.md`). The key is `introduce:<axis>`, from a closed list a study can compute: `introduce:tokens`, `introduce:api-envelope`, `introduce:api-errors`, `introduce:api-naming`, `introduce:schema-naming`. The options: 0. leave it, so only the axes that have a canonical are polished; 1. adopt the shape most of the code already uses; 2. a named standard where one fits (RFC 9457 problem details, snake_case columns, a 4-px spacing scale). Each is priced by the sites it changes, whether it breaks a published contract, and the migrations on populated tables. A schema option also says whether the objects that exist today are renamed (priced) or stay grandfathered. An API option always prices changing the endpoints that exist, since the API audit grandfathers nothing; a published contract keeps its old shape only behind a new version, priced as such.
+   3. **On the pick,** build it: the token file and its scale, the envelope and error helper, or the naming rule with its migrations. Declare it in the same commit:
+      - tokens: under `.claude/_extracted-idioms.md § Tokens`, opened by `- source: <path> [declared: ai/declared-idioms.md]`, plus a `tokens` row in `ai/declared-idioms.md`;
+      - a convention: in `ai/api-conventions.md`, or in `ai/schema-conventions.md` with `binds from: all` when the card priced renaming the objects that exist, otherwise `binds from: <today>` (they stay grandfathered).
+
+      Add an ADR when it breaks a contract or is one-way.
+   4. **Then** steps 5–6 run against it.
+      - **Leave it** marks that axis's fixes `skipped — left as is (<key>)`, with the card's revisit trigger; they count as closed.
+      - **No pick yet** leaves them `awaiting decision` in the progress file.
+
+      The rest of the run continues either way.
+
+   One value missing from a token scale the project has is not a foundation: `extract-token` adds it in step 6. **A dispatched run** (`/task`, `drain=1` or `brief=approved`) reads the store and the brief in `record=` by key, and raises no new card. It builds the picks it finds, holds the axes still waiting, and returns `NEEDS_INPUT` with their cards (`decide-before-change.md` § 8).
 5. **Plan internally** — group by surface (pages → modules → shared layouts for frontend; endpoints → controllers → middlewares for backend; tables → migrations for data). Foundation patterns first (token / envelope / column-name additions before consumer fixes). NO phase output to user.
 6. **Multi-agent parallel fix** — dispatch one agent per surface cluster. Closure verbs from the stack's closed vocabulary.
 7. **Variant iteration** (frontend only) for surfaces flagged "visually weak" — generates 3 style variants; user picks; skill applies. Skipped on `--no-iterate` or non-frontend stacks.
@@ -180,7 +200,8 @@ Examples:
 9. **Self-resolve common questions** — design system / API conventions / schema conventions / platform spec are the truth.
 10. **Halt only on genuine blockers**:
     - `PROJECT_KIND` is `unknown` (halts the whole run).
-    - Token / envelope / column-name primitive missing where fix needs one — surfaces "/setup-project --refine to add primitive first".
+    - Not a halt: a token, envelope or column-name primitive the fix needs and the project lacks. Step 4.5 introduces it, on the person's pick, before the fixes that use it.
+    - A token source on disk that `§ Tokens` does not list (step 4.5.0): that axis halts with "`/setup-project --refine` writes `§ Tokens` from <path>"; the rest continue.
     - Visual-regression collateral on a NON-target surface (frontend; halts that fix).
     - OpenAPI breaking change (backend; halts; user must approve via ADR).
     - Schema migration that's irreversible (data; halts; user must approve via ADR).
@@ -188,11 +209,11 @@ Examples:
 
 ## Phase 3.5 — Handoff (`--plan` only)
 
-`--plan` is **not** a louder `--dry-run`. It runs steps 1–5 (detect stack → dispatch detectors → audit → resolve scope → plan internally) above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
+`--plan` is **not** a louder `--dry-run`. It runs steps 1–5 (detect stack → dispatch detectors → audit → resolve scope → the cards of step 4.5 → plan internally) above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
 
 1. **Read-only phases only.** No closure verb is applied, no variant is generated, nothing is committed, and the per-surface progress roll-up is not advanced. Baselines captured during the audit stay in the plan as evidence, not as a run artifact.
 2. **Expand the internal plan into the canonical handoff format.** All **eight** headers are mandatory — `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Constraints` / `## Steps` / `## Verification` / `## Status` — plus the `Plan ID`. `/execute-plan` halts on a file missing any one of them ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt), so an eight-header file is the contract, not a nicety. `## Approach` and `## Known unknowns` are accepted optional extras.
-3. **Map this command's own vocabulary onto those headers.** Each finding becomes one `## Steps` entry carrying its closure verb from the stack's closed vocabulary; the surfaces / endpoints / tables it touches become `## Outputs`; "verbs only from the stack's closed set", "behaviour preserved", and the stack's non-regression gates become `## Constraints`; `## Verification` is the stack's own gate set (lint + typecheck + scoped tests, plus a11y and visual-regression on frontend, contract tests and OpenAPI-diff on backend, schema-validate on data, per-platform smoke on mobile).
+3. **Map this command's own vocabulary onto those headers.** Each finding becomes one `## Steps` entry carrying its closure verb from the stack's closed vocabulary, except on an axis whose step-4.5 card has no pick: that card is a `## Known unknowns` row reading `Decide first: introduce:<axis>`, and the axis's findings go there with it, never under Steps or Outputs (a pick given before the plan is written goes to the store, `decide-before-change.md` § 8); the surfaces / endpoints / tables it touches become `## Outputs`; "verbs only from the stack's closed set", "behaviour preserved", and the stack's non-regression gates become `## Constraints`; `## Verification` is the stack's own gate set (lint + typecheck + scoped tests, plus a11y and visual-regression on frontend, contract tests and OpenAPI-diff on backend, schema-validate on data, per-platform smoke on mobile).
 4. **Write** to `.claude/plans/polish-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed, no changelog entry.
 
 Full flag contract: [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). Field-by-field format: [`templates/canonical-command-template.md`](../templates/canonical-command-template.md) § "Phase 3.5 — Handoff".
@@ -204,7 +225,7 @@ Single source of truth: **`ai/polish/progress.md`**.
 ### How it works
 
 - **First run** → builds surface inventory (stack-appropriate: pages/modals/components for frontend; endpoints/handlers for backend; tables/migrations for data; screens/manifests for mobile) + writes progress file (all `pending`). Runs first surface.
-- **Subsequent runs** → reads progress file, picks next `pending` surface (or use `<scope>` arg). Already-`done` surfaces skipped.
+- **Subsequent runs** → reads progress file, picks next `pending` surface (or use `<scope>` arg). Already-`done` surfaces skipped. A surface `awaiting decision` (step 4.5) is not done. Once the store holds its pick, the next run builds the foundation and then its fixes; a leave-it pick marks them `skipped — left as is`, and the surface closes.
 - **`/polish --status`** → read-only progress report; no work done.
 
 ### Progress file shape (frontend example)
@@ -402,7 +423,7 @@ Revert:         each migration ships a tested down() — bun run migrate:down <i
 
 ## What you DON'T see
 
-- Phase numbers, halt files, ADR prompts (unless a genuine blocker requires user input).
+- Phase numbers, halt files, ADR prompts (unless a genuine blocker requires user input). The one question you do see is a step-4.5 decision card, before a first token scale, envelope or naming convention.
 - Tier promotions, ledger states.
 - "Variant selection menu" unless the audit explicitly opted in for iteration.
 
@@ -461,7 +482,8 @@ User sees results, not the policing.
 
 - **PROJECT_KIND unset / unknown** → halts with "set PROJECT_KIND via `/setup-project --refine` first".
 - **No findings** → "Surface already polished to conventions; nothing to do."
-- **Primitive missing** → halts the affected fix; surfaces "/setup-project --refine"; rest continue.
+- **Primitive missing** → not a halt: step 4.5 introduces it on the person's pick; that axis's fixes wait as `awaiting decision` until then; rest continue.
+- **Token source not in the oracle** (a setup older than Phase 2.5 § Foundations) → that axis halts, naming `/setup-project --refine` and the file; rest continue.
 - **Frontend visual-regression collateral** → that fix skips; rest continue.
 - **Backend OpenAPI breaking change** → halts; surfaces ADR template.
 - **Data irreversible migration** → halts; surfaces ADR template.

@@ -383,7 +383,7 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 
 - **Playwright not wired** (NO harness) → halt; route to install MCP + the `visual-check` skill (frontend pack). This is SKIPPED-class, distinct from the BLOCKED render below.
 - **Auth-gated route renders the login wall** (redirect / 403 / post-auth marker absent) → mark that route **BLOCKED**, never scored `low` / `pass`; if the up-front session assertion fails, the whole run HALTs with `RENDER BLOCKED — establish an authenticated session and re-run`. A login-wall screenshot must never become a page baseline or feed drift %. See the auth Hard rule.
-- **No tokens in idioms** → halt; route to `/setup-project --refine` to populate token inventory.
+- **No tokens in idioms** → halt. Tokens in the code → `/setup-project --refine` populates the inventory; no token system → `/polish` introduces one ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10).
 - **No surface prototypes in idioms** → cross-surface consistency detector skipped (warned).
 - **Too many findings on first sweep** (> 500) → recommend `--first-run`.
 - **Coverage targets not defined** → use defaults (95% tokens, 90% utilization, 100% ui-states); flag for project to override in idioms.

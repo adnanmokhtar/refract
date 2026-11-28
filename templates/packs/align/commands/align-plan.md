@@ -176,7 +176,7 @@ If any check fails → halt + report.
 
 - If a phase has 1 row, surface "consider merging with phase N±1" — single-row phases waste gate ceremony.
 - If a class has > 50 rows across multiple phases and no AL-03 row exists for it, surface "the convention has no T1 rule at error" — alignment will rot back without one. Queue the rule (a `no-restricted-imports` path, an ls-lint key) and a shrink-only baseline as the enforcement phase.
-- If a row's `shared_equivalent` resolves to a file no oracle row names (not in `wrappers.tsv`, not in `_extracted-idioms.md`), surface "oracle drift; run `/setup-project --refine` to update".
+- If a row's `shared_equivalent` resolves to a file no oracle row names (not in `wrappers.tsv`, not in `_extracted-idioms.md`), surface "oracle drift; run `/setup-project --refine` to update". A file with fewer than three users is listed in `ai/declared-idioms.md` first, or refine leaves it out again (`decide-before-change.md` § 10).
 - If the dependency graph surfaced a circular dependency between findings → halt; the underlying convention is contradictory; ADR before fixing.
 
 ## Output to user

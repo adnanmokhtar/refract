@@ -137,7 +137,7 @@ Total rows: <N> (align-closed <A> · routed <R> · refuted <F> · aged out <O>)
 - Recommended cadence for re-scan: <weekly | monthly | quarterly>
 
 ## Recommendations
-- <recommendation 1, e.g.: "5 idiom gaps surfaced during alignment; queue /setup-project --refine">
+- <recommendation 1, e.g.: "5 idiom gaps surfaced during alignment: 3 in the code (queue /setup-project --refine), 2 to build first (their owners, decide-before-change.md § 10)">
 - <recommendation 2, e.g.: "AL-11 had 28 rows and no T1 rule; queue a no-restricted-imports path + a shrink-only baseline (AL-03)">
 - <recommendation 3, e.g.: "next /align-scan --changed origin/main on every PR; full /align-scan in 4 weeks">
 
@@ -192,7 +192,7 @@ Rules for this block:
 ## Phase 7 — Improve (feed the learning loop)
 
 - AL classes that surfaced >50 rows each with no T1 rule = strong signal for lint-rule enforcement plus a shrink-only baseline (an AL-03 row); queue ADRs.
-- Idiom gaps surfaced (rows that halted `missing-idiom`) = strong signal for `/setup-project --refine`; queue.
+- Idiom gaps surfaced (rows that halted `missing-idiom`) = queue each by its route: `/setup-project --refine` when the code has it, its owner when it does not (`decide-before-change.md` § 10).
 - A high `pending-ratification` count = the oracle is mostly generated (T2g); ratification before the next sweep.
 - Phases that took > 5x estimated wall-clock = signal for re-scoping; queue post-mortem.
 - If `--re-scan` shows a class regressed (a re-routed raw import reappeared), queue ADR for "alignment cadence too long, or the rule is not at error in CI".

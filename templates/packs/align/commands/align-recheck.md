@@ -248,7 +248,7 @@ Next:
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- If the same finding halts repeatedly across rechecks → flag for re-classification, `/align-park`, or `/setup-project --refine` (idiom gap).
+- If the same finding halts repeatedly across rechecks → flag for re-classification, `/align-park`, or the idiom gap's route (`decide-before-change.md` § 10).
 - If a path consistently surfaces drift → queue ADR for hook / lint rule that prevents the drift class.
 - If many findings in one module drift simultaneously → likely a refactor or feature merge that violated conventions; surface as a cluster.
 
@@ -268,14 +268,14 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 - **Owner rows are lines, not fixes.** Security, performance, data, error handling, API contracts and new copy are closed by their owners' fix commands.
 - **Tier defaults preserved.** Trivial / standard / heavy auto-routes per finding.
 - **Halts are aggregated, not blocking.** A halted finding surfaces in the summary; other findings continue.
-- **No silent abstractions.** Functional fixes USE existing idioms; missing idioms halt the row, route to `/setup-project --refine`.
+- **No silent abstractions.** Functional fixes USE existing idioms; a missing idiom halts the row and routes per [`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10.
 - **Idempotent.** Re-running drains halts as their causes resolve.
 
 ## Failure modes
 
 - **No findings match the path** — halt; surface "no ledger rows have scope or evidence inside <given paths>". Suggest `/align-recheck <path> --rescan-fresh` to surface new findings.
 - **A matched finding's evidence file is deleted** — mark `archived-pre-existing`; skip.
-- **Idiom missing** for a functional row — halt that row; surface in summary; rest continues. User runs `/setup-project --refine` to add the idiom, then re-runs recheck.
+- **Idiom missing** for a functional row — halt that row; surface in summary; rest continues. When the code has it, the user runs `/setup-project --refine` to declare it; when it does not, the command that builds that kind runs first (`decide-before-change.md` § 10). Then recheck runs again.
 - **Many findings halt with same root cause** — surface as a cluster ("8 findings halted: wrapper gap, `@acme/ui` Dialog has no `modal` prop") so the user fixes upstream once.
 
 ## Examples

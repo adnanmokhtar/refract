@@ -14,6 +14,28 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.35.0 — 2026-11-28
+
+**A missing primitive goes where it can be built.** `/setup-project --refine` re-reads the code
+and declares what is already there; it never writes code. Sending a token system or a wrapper
+the project lacks to refine left the run halting on the same line after every refine. Each
+halt now asks first whether the code has it (`templates/snippets/decide-before-change.md` § 10):
+- **`/ui-crawl-fix`:** a wrapper the code has is declared by refine. One it lacks is extracted
+  by `/unify-surfaces` or built by `/add-component`; a sanitize helper belongs to
+  `/security-fix`. An idioms file that names no wrapper yet is not a whole-run halt: each class
+  that needs one halts per row.
+- **`/ui-audit`, `/ui-sweep`:** tokens in the code → refine, which now writes `§ Tokens` from
+  the token source (setup Phase 2.5 § Foundations). No token system → `/polish`.
+- **`ui-design-sweep`:** under `/polish`, a project with no token system is not a halt. The
+  skill returns the raw values per category, and `/polish` step 4.5 puts a first scale on a
+  decision card. Before, it halted and sent the run to refine, so `/polish` could not introduce
+  the token system it exists to introduce.
+- **`/enhance-ui`, `/redesign`, `/add-theme-variant`:** a thin oracle routes to `/polish` when the
+  code has no token system, and to an `ai/declared-idioms.md` row when its components have fewer
+  than three users. Refine alone wrote the same thin file.
+- **`/ui-crawl-fix`'s locale factory** is read from any idioms section. `§ Voice / locales` has no
+  setup writer, so the row halted on every project.
+
 ## 1.34.0 — 2026-10-21
 
 **A studio lane for asks to impress.** Measured on a real job, the homepage of a bilingual AR/EN premium B2B firm. The default flow (`/design-review` → `/design-first` → `/art-direct --reimagine`) produced three directions. All were clean: axe 0, CLS ≤ 0.055, 24–25 of 26 on `design-score`. The owner rejected all three as "different, not the best a heavyweight creative would do". A studio process then took an independent critic from 7/7/6/7 to 8/8/7/7.5 (Design / Creativity / Usability / Content) in three rounds, with "impress a C-level client: yes · top studio: yes, just".

@@ -112,9 +112,9 @@ Each owner below is dispatched "when the <pack> pack is installed"; without it, 
 
 ## Failure modes (top-level)
 
-- No declared convention → every align class `N/A (no declared convention)`; `/setup-project --refine` first.
+- No declared convention → every align class `N/A (no declared convention)`. `/setup-project --refine` first when the code follows conventions it has not extracted; when it follows none, there is nothing to enforce: `/polish` introduces tokens, envelopes and API or schema naming, and any other convention is the person's line in `ai/conventions.md`.
 - Most of the ledger is T2g (generated lines) → the Unconfirmed share is high; ratify the lines (`/setup-project --refine` after a human confirms) before planning.
 - Heavy churn during scan → re-run after the churn settles.
 - Findings exceed cap (>200 across phases) → `/align-scan --first-run` caps each class at 20 and defers the rest as `Live, unreviewed`; ship the trivial / standard wins first (`/align-plan --exclude-tier=heavy`).
 - A class with debt and no baseline → queue the ratchet (a shrink-only baseline) so it cannot grow while the sweep runs.
-- Idiom inventory gaps surface repeatedly → halt-rate signal; queue `/setup-project --refine` priority.
+- Idiom inventory gaps surface repeatedly → halt-rate signal; queue each gap by its route (`decide-before-change.md` § 10).

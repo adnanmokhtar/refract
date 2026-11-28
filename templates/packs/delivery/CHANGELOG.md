@@ -6,6 +6,13 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.6.1 — 2026-11-28
+
+**`/add-feature` declares what it builds.** It records a shared unit it adds because another command halted for it in the same commit
+(`templates/snippets/decide-before-change.md` § 10): its entry in `.claude/_extracted-idioms.md`, ending
+`[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md`. Without the row, the next `/setup-project` run dropped the new unit below the three-user threshold,
+and the row that had halted for it halted again.
+
 ## 1.6.0 — 2026-11-27
 
 **Decide before you change** (`templates/snippets/decide-before-change.md`).

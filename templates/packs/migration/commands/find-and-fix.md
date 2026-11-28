@@ -69,7 +69,7 @@ Before any V1 read, produce two artifacts (required at every tier — see migrat
    | <V1 surface 2>  | <V2 equivalent named in _extracted-idioms.md> |
    | ...             | ... |
    ```
-   The specific wrapper / util / hook / class / pattern names are project-specific and live in the per-project anchors — do NOT hardcode any here. If `_extracted-idioms.md` is empty, halt and run `/setup-project --refine` before continuing the port.
+   The specific wrapper / util / hook / class / pattern names are project-specific and live in the per-project anchors — do NOT hardcode any here. If `_extracted-idioms.md` is missing, halt and run `/setup-project --refine` before continuing the port. If it names nothing the port needs because V2 has no idiom with three users yet, list each V2 unit the port will reuse in `ai/declared-idioms.md`, then refine extracts it (`templates/snippets/decide-before-change.md` § 10); re-running refine alone writes the same empty file.
 
    Auto-fail at gate (`check_v2_mapping_doc`) if missing or has zero mapping rows.
 

@@ -14,6 +14,34 @@ each release inside the `_version.json` `summary` string, and every release appe
 one JSON line. Each telling is preserved below under the version it describes, verbatim and
 unabridged.
 
+## 2.1.0 — 2026-11-28
+
+**A missing idiom goes where it can be built.** `/setup-project --refine` declares an idiom
+the code already has; it never writes code. Every route that sent a primitive the code lacks to
+refine now sends it to the command that builds that kind (`templates/snippets/decide-before-change.md` § 10). That command declares it in
+the same commit: a row in `ai/declared-idioms.md`, which every setup run must keep, and its
+entry in `_extracted-idioms.md`.
+- **The oracle never changes mid-phase.** A halted row is parked, the phase closes, the
+  primitive is built and declared in its own commit, and the row is unparked and its phase run
+  again from it, on a fresh base. The advice
+  that declared it inside the phase would have failed `check_oracle_unmodified`.
+- **Commands:** `/align-phase`, `/align-park`, `/align-recheck`, `/align-status`,
+  `/align-replan`, `/align-gate` and `/align-final`.
+- **Agents and lenses:** `@align-idiom-auditor`, `@align-ledger-auditor`,
+  `@align-evidence-auditor` and the `align-evidence` lens.
+- **Skills and rules:** `find-and-align`, `align-detect`, `align-discipline` rules 6 and
+  the oracle rule, `align-guardrails` and `_essentials`.
+- **Examples:**
+  - A047's missing refund ability is added by `/add-feature`, in the park, the refusal and
+    the status report alike.
+  - The systemic cache gap goes to `/optimize` on a decision card.
+  - The idiom auditor's validator row goes to `/security-fix`, which owns it.
+- **New symbols** that `/align-gate` check 4 catches leave the alignment PR; a wanted one is
+  built in its own change.
+- **An empty oracle** (no idiom has three users, none declared) is no longer a whole-audit halt
+  in `@align-idiom-auditor`: refine would write the same empty file. Each row that needs an idiom
+  halts on its own route.
+
 ## 2.0.1 — 2026-10-19
 
 - `references/align-discipline-catalogue.md` examples name illustrative files, not the `convention-drift` / `business-rules` fixtures' seeded ones (`lint-fixture-leakage.py`).

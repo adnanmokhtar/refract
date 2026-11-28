@@ -50,7 +50,7 @@ Most of what a scan sees is owned elsewhere. Before any edit, the row goes to it
 | a layer rework beyond a re-route through a named public surface (AL-20/21) | `/optimize` |
 | a rename of a wire, DB, env or generated name (§ 15) | `/refactor` with an ADR |
 | an oracle tagged T2g (generated) | `pending-ratification`: one probe per rule ("confirm `ai/conventions.md:<n>`"), never an edit (§ 28) |
-| an idiom the fix needs that no oracle names | halt `missing-idiom` → `/setup-project --refine` |
+| an idiom the fix needs that no oracle names | halt `missing-idiom` → declared or built first (`decide-before-change.md` § 10) |
 
 **The carve-out** (eval O-3, proposed). A performance or database row whose fix applies an idiom the oracle already names (a declared batch loader, a declared cache wrapper) stays here only when the owning pack is absent. Its baseline must be **measured** by a failing-first test (a query-count scaling test, [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Query-count scaling), never a number in `notes`.
 
@@ -164,12 +164,12 @@ GIT_OPTIONAL_LOCKS=0 TMPDIR="$RUN" python3 -I "$G" ladder --repo=. --base="$BASE
 
 | Step | Halt | Destination |
 |---|---|---|
-| ROUTE | an idiom no oracle names | `/setup-project --refine` |
+| ROUTE | an idiom no oracle names | `/setup-project --refine` when the code has it; its owner when it does not (`decide-before-change.md` § 10) |
 | ROUTE | a wrapper gap | `/unify-surfaces` |
 | DETECT | the detector matched 0 files | `re-detect-vacuous`: fix the detector command, not the row |
 | DETECT | the oracle quote no longer resolves | `oracle-gone`: re-scan |
 | DECIDE | the verb is not in the closed set, an `inline` target has more than one consumer, a `remove` target has importers | re-classify; `/refactor` |
-| FIX | a file outside `scope`; a new unnamed symbol; a structural row with net lines > 0; a functional block without its idiom | revert; re-scope or `/setup-project --refine` |
+| FIX | a file outside `scope`; a new unnamed symbol; a structural row with net lines > 0; a functional block without its idiom | revert; re-scope, or route the idiom (`decide-before-change.md` § 10) |
 | VERIFY | any ladder FAIL | revert; the ladder line goes into the halt file |
 | VERIFY | an EQ row with a computed-style difference | reclassify VC; stop at `pending-approval` |
 | RECORD | `gaps_closed ≠ len(evidence)` | `halted`: the row is not done |

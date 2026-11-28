@@ -25,7 +25,7 @@ Detect drift across the project's database schema + migration history so /polish
 |---|---|---|
 | Codebase root | Orchestrator | YES |
 | `PROJECT_KIND` | `_extracted-codebase.md § Gold standards`, else `.claude/codebase-profile.md` (its stack line names the ORM and engine) | YES under `/polish` (`data-*` or `backend-*` with schema scope); under `/db-audit` a backend with migrations is enough |
-| Schema conventions | `_extracted-idioms.md § Schema conventions`, `ai/schema-conventions.md`, or the schema section of `ai/conventions.md` (S1 prints which) | YES (without one, drift is undefined: under `/polish` halt; under `/db-audit` print `blocked (no conventions file)` and still print S2's profile as context) |
+| Schema conventions | `ai/schema-conventions.md`, the schema section of `ai/conventions.md`, or `_extracted-idioms.md § Schema conventions` (S1 prints which; the person's files win over the measured section) | YES (without one, drift is undefined: under `/polish` the skill returns S2's profile for step 4.5; under `/db-audit` print `blocked (no conventions file)` and still print S2's profile as context) |
 | Schema introspection access | DB connection, OR the schema map (S2, `index-coverage-scan/scripts/schema-map.py`), OR the migration history | YES (one of the three) |
 | Scope filter (optional) | Caller flag (e.g., `--scope=analytics`) | NO (default: all tables) |
 
@@ -53,8 +53,8 @@ integrity_class: <one of: corrupts-data | loses-precision | breaks-queries | cos
 Run from the repo root. S1 finds the conventions and the project kind; S2 profiles the schema the migrations leave behind, one line per detector family. Every number is a candidate list for a detector below, never a finding: a drift is a finding only against what the conventions say.
 
 ```bash
-# S1. Where the conventions live (first that exists wins) and PROJECT_KIND (the extract, else the codebase profile).
-for f in _extracted-idioms.md .claude/_extracted-idioms.md ai/schema-conventions.md ai/conventions.md; do [ -f "$f" ] && rg -n -i --pcre2 '^#{1,4}\s*(schema|persistence|database|data\s*model|migrations?)\b' "$f"; done
+# S1. Where the conventions live (first that exists wins: the person's files, then the measured extract) and PROJECT_KIND (the extract, else the codebase profile).
+for f in ai/schema-conventions.md ai/conventions.md _extracted-idioms.md .claude/_extracted-idioms.md; do [ -f "$f" ] && rg -n -i --pcre2 '^#{1,4}\s*(schema|persistence|database|data\s*model|migrations?)\b' "$f"; done
 for f in _extracted-codebase.md .claude/codebase-profile.md; do [ -f "$f" ] && rg -n -i --pcre2 '\bPROJECT_KIND\b|\b(MikroORM|Prisma|TypeORM|Sequelize|Drizzle|Django|SQLAlchemy|ActiveRecord|Eloquent|Hibernate|GORM|EF Core)\b[^\n]{0,40}\b(Postgres|MySQL|MariaDB|SQLite|SQL Server)' "$f" | head -3; done
 # S2. The schema (index-coverage-scan H0's map) profiled per detector, and object-name patterns by the date of the migration that made them.
 SM=.claude/skills/index-coverage-scan/scripts/schema-map.py; RUN=$(mktemp -d "${TMPDIR:-/tmp}/schema-consistency.XXXXXX")
@@ -131,7 +131,7 @@ Common drifts:
 
 **Fingerprint**: index or FK-constraint names follow different patterns across the schema — `idx_orders_status` / `ix_orders_status` / `orders_status_idx` / `orders_idx_status`, and the equivalent spread on constraint names.
 
-**Grandfathering**: a naming rule binds the objects created after the rule was adopted (the conventions file's date, its ADR, or the first migration that follows it). S2 prints each name pattern with the first and last migration date that used it; a pattern whose last use predates the rule is grandfathered (one summary line with its count), and only a pattern still used after the rule is drift.
+**Grandfathering**: a naming rule binds the objects created after the rule was adopted (the person's conventions file's date, its ADR, or the first migration that follows it). Never the measured `§ Schema conventions`: every setup run rewrites it, so its date would grandfather the drift that landed in between. A rule whose line states `binds from:` (written by `/polish` step 4.5 from the card) uses that instead: `binds from: all` grandfathers nothing, since the card priced renaming what exists. S2 prints each name pattern with the first and last migration date that used it; a pattern whose last use predates the rule is grandfathered (one summary line with its count), and only a pattern still used after the rule is drift.
 
 **Closure verb**: `unify-object-naming`.
 
@@ -220,7 +220,7 @@ Common drifts:
 1. **Pre-flight**:
    - Run the block in § "Pre-flight (runnable, read-only)".
    - `PROJECT_KIND` is `data-*` OR `backend-*` with schema scope (the extract, else the codebase profile). Under `/polish`, halt otherwise.
-   - A conventions source exists (S1). Under `/polish`, halt if none; under `/db-audit`, print `blocked (no conventions file)`.
+   - A conventions source exists (S1). With none: under `/polish`, return S2's name profile for its step 4.5; under `/db-audit`, print `blocked (no conventions file)`.
    - DB introspection access, the schema map, OR migration history readable. Halt if none.
 2. **Introspect schema** — get tables, columns, types, indexes, FKs, constraints. Emit `_schema-snapshot.md`.
 3. **Walk migration history** — emit `_migration-summary.md` listing files + patterns + reversibility.
@@ -256,7 +256,7 @@ Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/pos
 
 ## Failure modes
 
-- **Conventions missing** → under `/polish` halt; surface "/setup-project --refine to declare schema conventions first". Under `/db-audit`, the Conventions ledger row prints `blocked (no conventions file)` with S2's profile as context.
+- **Conventions missing** → under `/polish`, not a halt: return S2's name profile, and step 4.5 puts the choice on a decision card (`decide-before-change.md` § 10). When the schema already follows one convention, surface "/setup-project --refine to declare schema conventions first". A `split` axis in `§ Schema conventions` is undeclared, and an axis known only from that measured section is unconfirmed: nothing is renamed against it until the person confirms it (`/polish` step 4.5). `ai/schema-conventions.md`, the person's decision, wins over the measured section. Under `/db-audit`, the Conventions ledger row prints `blocked (no conventions file)` with S2's profile as context.
 - **Cannot introspect** → halt; user provides DB access OR migration-history dump.
 - **High-risk closure** (type conversion with data-loss potential) → flag, halt that finding, surface ADR template; rest continue.
 - **Engine cannot rename the object in place** → the naming finding is deferred, not converted into a drop + recreate.

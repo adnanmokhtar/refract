@@ -14,6 +14,13 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.2.3 — 2026-11-28
+
+**`/add-component` declares what it builds.** It records the component, as a `wrapper` row in the same commit
+(`templates/snippets/decide-before-change.md` § 10): its entry in `.claude/_extracted-idioms.md`, ending
+`[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md`. Without the row, the next `/setup-project` run dropped the new unit below the three-user threshold,
+and the row that had halted for it halted again.
+
 ## 2.2.2 — 2026-11-02
 
 - **`api-contract-sentry` (agent + example) runs on ripgrep 14.** `--type vue` is built in from ripgrep 15 only; ripgrep 14.1.0 — what `apt install ripgrep` gives on Ubuntu 24.04 — exits 2 with `unrecognized file type: vue`, and the field-usage grep reads as "no callers". It now declares the type first: `--type-add 'vue:*.vue' --type vue --type ts`, which is a no-op on 15. Found when CI first installed rg and `lint-rg-parses.sh` stopped skipping.

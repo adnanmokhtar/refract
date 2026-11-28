@@ -86,7 +86,7 @@ The closed **21-verb vocabulary** (`align-discipline.md` halt #4; `ai/patterns/a
 
 **Touch only files in `scope`**, and inside them only evidence lines and the verb's footprint (`/align-gate` check 5). A fix that needs a file outside `scope` halts; the row was mis-scoped at scan time.
 
-**No new abstractions.** Even functional verbs use the project's pre-named idioms. If the idiom needed doesn't exist, halt; route to `/setup-project --refine` to declare it first.
+**No new abstractions.** Even functional verbs use the project's pre-named idioms. If the idiom needed is not declared, halt. In the code → `/setup-project --refine` declares it; not in the code → the command that builds that kind does ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10). Either way it happens outside this run, since the oracle never changes mid-phase: park the row, close the phase, build and declare in their own commit, then unpark the row and run its phase again from it (`--start-from=<id>`, on a fresh base).
 
 ### VERIFY — the ladder, then the phase checks
 

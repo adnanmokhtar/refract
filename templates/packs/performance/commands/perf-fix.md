@@ -155,6 +155,8 @@ When the finding carries an impact claim and a harness exists, measure before an
 ### Commit (one finding = one commit, only where the repo allows it)
 Read the convention first (recent `git log` subjects, a protected or PR-only branch, a no-commit rule in `CLAUDE.md` or `CONTRIBUTING`). Where commits are allowed, commit each closed finding on its own as `perf: <what cost what at scale> — <finding id>` (`perf: checkout opened one socket per call — P-03`). Otherwise leave the change staged and say so.
 
+**A shared unit the fix built** (a cache client, a pool, a batching helper that other code will reuse) is declared in the same commit ([`decide-before-change.md`](../../../snippets/decide-before-change.md) § 10): its entry in `.claude/_extracted-idioms.md`, ending `[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md` (kind `wrapper` for a component, `composable` for a hook, `service` for a client or helper). A new unit has fewer than three users: without the row, the next `/setup-project` run drops it, and the row that halted for it halts again.
+
 ## Phase 5 — Update
 - Update `ai/audits/<date>-perf.md` in place, or write a `-fix.md` companion: mark each finding and append the closure table and the production-grade table.
 - `ai/dynamic/changelog.md`: `Perf fix on <scope>: C closed, S staged, E escalated, D deferred`.

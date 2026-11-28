@@ -69,7 +69,7 @@ Verdict: `PASS` · `REJECT — hand-waved (<field>: "<quoted token>")`.
 ### Check 6 — Verb reachable without invention, proof class plausible (audit halts #4, #10)
 
 `closure_verb` is one of the closed 21, and reachable without invention:
-- `replace-with-shared` / `dedupe` → `shared_equivalent` resolves to a wrapper or helper an oracle names. Unresolvable → `REJECT — idiom inventory gap` (route `/setup-project --refine`). A raw call using a capability the wrapper lacks → `REJECT — wrapper gap` (route `/unify-surfaces`).
+- `replace-with-shared` / `dedupe` → `shared_equivalent` resolves to a wrapper or helper an oracle names. Unresolvable → `REJECT — idiom inventory gap` (route per `decide-before-change.md` § 10: refine declares a wrapper the code has; one it lacks is built first). A raw call using a capability the wrapper lacks → `REJECT — wrapper gap` (route `/unify-surfaces`).
 - `add-gate` → the gate component the oracle names exists (`<Can>`).
 - `inline` → exactly one consumer. Two or more → `/refactor`.
 

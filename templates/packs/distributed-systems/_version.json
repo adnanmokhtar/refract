@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "distributed-systems",
-  "version": "2.1.0",
-  "released": "2026-11-27",
+  "version": "2.1.1",
+  "released": "2026-11-28",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/design-system decides before it draws: a decision card weighs leaving the current shape and the simplest change inside what runs against the distributed option, priced from the capacity model; /ds-fix puts an outbox, a lock store or a new broker, queue or stream as a card.",
+  "summary": "/ds-fix declares an outbox, idempotency store or lock client the fix built for reuse in the same commit: its _extracted-idioms.md entry and an ai/declared-idioms.md row, so the next /setup-project run keeps it.",
   "changelog": "CHANGELOG.md"
 }

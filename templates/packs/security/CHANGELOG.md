@@ -9,6 +9,13 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.5.1 — 2026-11-28
+
+**`/security-fix` declares what it builds.** It records a gate, validator or sanitiser the fix built for reuse in the same commit
+(`templates/snippets/decide-before-change.md` § 10): its entry in `.claude/_extracted-idioms.md`, ending
+`[declared: ai/declared-idioms.md]`, and its row in `ai/declared-idioms.md`. Without the row, the next `/setup-project` run dropped the new unit below the three-user threshold,
+and the row that had halted for it halted again.
+
 ## 2.5.0 — 2026-10-19
 
 **Two detectors for the LLM trust boundary (Track A batch 8, ai-engineering eval O-1/O-2).**

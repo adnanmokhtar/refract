@@ -19,6 +19,8 @@ Used by:
   `/design-system` before it draws (each when its pack is installed);
 - `@architect`, when a design needs something the project does not run today, and `/fix-bug`, when
   a fix does;
+- `/polish`, before a first token scale, envelope or naming convention;
+- every halt for a primitive the code lacks: § 10 names the command that builds it;
 - `study-before-build.md` § 6: the brief of an improvement task carries its card;
 - `review-action-plan.md` rule 7: a read-only report marks such a remedy `Decide first:`.
 
@@ -156,8 +158,8 @@ which key it matched.
   Otherwise the card waits.
 - **A pick that needs a primitive the project does not have** (a cache client, a queue, a store)
   builds it as part of the option: the card already priced it, and the person picked it. It is
-  built in the project's own shape, with its ADR. `/setup-project --refine` afterwards declares it
-  as an idiom; refine is not what builds the pick.
+  built in the project's own shape, with its ADR, and declared in the same commit (§ 10); refine
+  is not what builds the pick.
 - **A plan file** (`--plan`, `--plan-only`) never puts an unpicked card's change, or the work it
   holds (what depends on it, the tactical work in the modules it would move), under `## Steps` or
   `## Outputs`. A card answered before the plan is written becomes Steps and Outputs, and its
@@ -176,7 +178,7 @@ which key it matched.
     raised the card.
   - `/optimize`: `ai/optimize/decisions.md`.
   - `/audit`: `ai/audit/decisions.md`.
-  - `/upgrade-dep` and `/optimize-query`: `ai/dynamic/decisions-pending.md`, one entry per card in
+  - `/upgrade-dep`, `/optimize-query` and `/polish`: `ai/dynamic/decisions-pending.md`, one entry per card in
     that file's format. Its title carries the card's key, `Source:` names the command and the
     target, the options go under `Alternatives considered:`, the pick under `Decision:`, and the
     revisit trigger under `Status:` as `WATCHING — revisit when <trigger>`. A card with no pick
@@ -203,3 +205,45 @@ which key it matched.
   included. Its revisit trigger becomes `## Review triggers`.
 - **After the build,** the same probe runs again, and the result is written beside the card:
   `after: <number>`. A gain that did not appear is reported, never dropped.
+
+## 10. A primitive the code lacks — where it goes
+`/setup-project --refine` re-reads the code and declares what is already there; it never writes
+code. It extracts an idiom when three or more places depend on it, or when `ai/declared-idioms.md`
+lists it, and it reads tokens and API and schema conventions from where the project defines them
+(`phase-2-profile.md` § Foundations). So a halt for "the fix needs a primitive no oracle names"
+asks one question first: is it in the code?
+- **In the code, not declared** → `/setup-project --refine` declares it. A unit with fewer than
+  three users is listed in `ai/declared-idioms.md` first, so refine extracts it.
+- **Not in the code** → the command that builds that kind, never refine:
+  - **a token or token scale, an API envelope or error contract, a missing UI state, an API or
+    schema naming convention** → `/polish`, whose foundation step (step 4.5) introduces it before
+    the fixes that use it;
+  - **the one shared wrapper for tables, forms, headers, tabs, filters or buttons, or the
+    validation pipeline** → `/unify-surfaces`, which extracts it from the instances already there;
+    any other shared component → `/add-component` (frontend pack);
+  - **a shared helper, hook or service** (a constants module, an error handler, a locale factory)
+    → `/refactor`, which extracts it once the code has three copies (its Rule of Three); a feature
+    that needs it → `/add-feature`. With fewer copies and no feature, no helper is built: the row
+    stays halted with `below THR-DRY — <n> copies` as its reason, for the person to park or
+    archive (in an align ledger, `parked`, or `archived-deprecated` with its ADR);
+  - **a cache, a queue, a client, a store or another moving part** → `/optimize`, or the pack
+    fixer after its audit (`/perf-audit` then `/perf-fix`, `/ds-audit` then `/ds-fix`,
+    `/infra-audit` then `/infra-fix`), or `/add-feature`;
+  - **a gate, a validator or a sanitiser** for a security finding → `/security-audit` then
+    `/security-fix`, which owns the class; a permission or ability a feature needs →
+    `/add-feature`.
+- **A card first** (§ 1) when the new primitive adds a moving part or has more than one reasonable
+  shape. A first token scale, a first envelope or error contract, and a rename across populated
+  tables each have more than one. `/polish` keeps its cards in `ai/dynamic/decisions-pending.md`
+  (§ 9).
+- **Declared in the same commit** by the command that built it. The unit goes into
+  `.claude/_extracted-idioms.md` in its section, its line ending `[declared: ai/declared-idioms.md]`,
+  so the next reader finds it now. A row goes into `ai/declared-idioms.md`, so the next
+  `/setup-project` run keeps it. A permission or ability is data in a file the oracle already
+  names, not a unit: adding it needs no row. A convention `/polish`
+  picks goes to `ai/api-conventions.md` or `ai/schema-conventions.md`, which no setup run writes.
+- **The command that halted does not build it** inside its own run. An alignment phase never
+  changes its oracle mid-phase (`check_oracle_unmodified`): the row is parked, the phase closes,
+  the primitive is built and declared in its own commit, and the row is unparked and its phase run
+  again from it (`/align-phase <N> --start-from=<id>`, on a fresh base). Any other halted row
+  resumes on the next run.

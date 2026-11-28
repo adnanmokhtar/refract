@@ -9,6 +9,19 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.1 — 2026-11-28
+
+**`api-consistency-audit`: a missing API convention goes where it can be chosen.**
+- **Under `/polish`,** a missing or `split` convention is not a halt. The skill returns the
+  shapes its endpoint registry found, and `/polish` step 4.5 puts the choice on a decision
+  card (`templates/snippets/decide-before-change.md` § 10). Elsewhere it halts, routing to refine when the code follows one shape and to
+  `/polish` when it follows none.
+- **A split axis** (no shape at 80 % of the sites and 90 % of the recent files, as setup Phase 2.5 writes it) is undeclared:
+  its detector skips with WARN.
+- **A conflict** between `ai/api-conventions.md` and the measured `§ API conventions` is no
+  longer a halt. The person's file wins, and the audit prints `measured <shape>, declared
+  <shape>`: a migration the person chose, or a stale decision to correct.
+
 ## 2.4.0 — 2026-11-27
 
 **Decide before you change.** `/fix-bug` puts a fix that needs something the project does

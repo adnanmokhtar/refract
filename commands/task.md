@@ -3,7 +3,7 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.9.0
+version: 1.9.1
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -188,7 +188,7 @@ the top card the drain has not seen yet.
 **Parking.** A card that stops mid-build is parked, in every `/task` run, a single card or a
 drain. It stops at a T3 gate, or on a question that appears during the build (`NEEDS_INPUT`, from
 `/add-feature` or `/fix-bug`), or on decision cards a routed command raised itself (`NEEDS_INPUT`
-from any routed command — `/optimize`, `/audit`, `/upgrade-dep`, `/design-system`, a pack fixer —
+from any routed command — `/optimize`, `/audit`, `/polish`, `/upgrade-dep`, `/design-system`, a pack fixer —
 after it finished everything that needed no card; `decide-before-change.md` § 8). In a single-card session the person is asked there first. The card
 is parked when no answer comes in that session, or at once inside a drain (`drain=1`):
 1. **Keep the worktree.** It is not removed, so the run folder, the baseline
